@@ -25,7 +25,7 @@ async function fetchTable(tableName: string, options = {}): Promise<Table> {
   return output
 }
 
-export async function donations(): Promise<DonationSummary> {
+export async function sponsors(): Promise<DonationSummary> {
   const table = await fetchTable('Sponsor a Hospital', { view: 'Website data' })  
   const values = Object.values(table)
   const sum = values.reduce((prev, r) => r['Amount for Website'] + prev, 0)

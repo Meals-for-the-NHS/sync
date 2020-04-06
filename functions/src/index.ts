@@ -26,8 +26,15 @@ exports.onNewDonation = europeFunctions.firestore
 
 exports.onDonationDayWrite = europeFunctions.firestore
   .document('aggregates/donations/days/{id}')
-  .onCreate((snapshot) => {
-    return sync.updateDonationsTotal(<DonationSummary> snapshot.data())
+  .onWrite((change) => {
+    return sync.updateDonationsTotal(<DonationSummary> change.after.data())
+  })
+
+exports.scheduledSponsors = europeFunctions.pubsub
+  .schedule('0 * * * *')
+  .timeZone('Europe/London')
+  .onRun(() => {
+    return sync.hospitalSponsors()
   })
 
 ////////////////////////////////////
@@ -54,7 +61,6 @@ exports.onOrderWrite = europeFunctions.firestore
   .onCreate((snapshot) => {
     return sync.updateOrderModifiedTimestamps(<Order> snapshot.data())
   })
-
 
 ////////////////////////////////////
 /// cases

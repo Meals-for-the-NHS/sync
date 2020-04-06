@@ -82,13 +82,22 @@ export async function updateDonationDay(donation: Donation) {
 
 export async function updateDonationsTotal(summary: DonationSummary) {
   const { amount, donors } = summary
-  const docRef = db.doc(`aggregates/donations`)
+  const docRef = db.doc('aggregates/donations')
   const doc = await docRef.get()
   const current = doc.data()!
-  return docRef.update({
-    amount: current.amount + amount,
-    donors: current.donors + donors
-  })
+  return docRef.set({
+    donorbox: {
+      amount: current.amount || 0 + amount,
+      donors: current.donors || 0 + donors
+    }
+  }, { merge: true })
+}
+
+export async function hospitalSponsors() {
+  const sponsors = await airtable.sponsors()
+  return db.doc('aggregates/donations').set({
+    sponsors
+  }, { merge: true })
 }
 
 export async function cases() {
