@@ -3,6 +3,7 @@ import 'firebase-functions'
 import * as moment from 'moment'
 import * as donorbox from './donorbox'
 import * as airtable from './airtable'
+import * as guardian from './guardian'
 import { Donation, DonationSummary, Order } from './types'
 
 admin.initializeApp()
@@ -41,8 +42,8 @@ export async function orders() {
   const modifiedDoc = await db.collection('airtable_util').doc('orders_modified').get()
   const modified = modifiedDoc.data()
   let updated = 0
-  for (let i = 0; i < ordersList.length; i++) {
-    const [rec_id, fields] = ordersList[i]
+  for (const order of ordersList) {
+    const [rec_id, fields] = order
     if (!modified || modified[rec_id] === undefined || modified[rec_id] < fields.modified_timestamp) {
       const doc = Object.assign({}, fields, { record_id: rec_id })
       await db.collection('orders').doc(rec_id).set(doc)
@@ -88,4 +89,9 @@ export async function updateDonationsTotal(summary: DonationSummary) {
     amount: current.amount + amount,
     donors: current.donors + donors
   })
+}
+
+export async function cases() {
+  const casesByLA = await guardian.casesByLocalAuthority()
+  return airtable.updateCases(casesByLA)
 }

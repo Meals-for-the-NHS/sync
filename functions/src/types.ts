@@ -17,3 +17,5 @@ export type Order = {
   record_id: string,
   modified_timestamp: Date
 }
+
+export type Cases = { [la:string]: number }

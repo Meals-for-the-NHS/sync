@@ -55,3 +55,19 @@ exports.onOrderWrite = europeFunctions.firestore
     return sync.updateOrderModifiedTimestamps(<Order> snapshot.data())
   })
 
+
+////////////////////////////////////
+/// cases
+
+exports.cases = europeFunctions.https.onRequest(async (_, res) => {
+  await sync.cases()
+  res.send('ok')
+})
+
+
+exports.scheduledCases = europeFunctions.pubsub
+  .schedule('0 4,10,16,22 * * *')
+  .timeZone('Europe/London')
+  .onRun(() => {
+    return sync.cases()
+  })
