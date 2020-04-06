@@ -1,24 +1,12 @@
-//import * as functions from 'firebase-functions'
 import * as admin from 'firebase-admin'
 import 'firebase-functions'
 import * as moment from 'moment'
 import * as donorbox from './donorbox'
 import * as airtable from './airtable'
-import { Donation, DonationSummary } from './types'
+import { Donation, DonationSummary, Order } from './types'
 
 admin.initializeApp()
 const db = admin.firestore()
-
-// exports.date = functions.https.onRequest(async (req, res) => {
-//   const donorboxDonations = await donorbox.donations()
-//   const privateDonations = await airtable.donations()
-//   db.collection('money').doc('donations').set({
-//     donorbox: donorboxDonations,
-//     other: privateDonations
-//   })
-//   console.log(donorboxDonations, privateDonations)
-//   res.send({})
-// })
 
 export async function donorboxDonations() {
   const donations = await donorbox.donations()
@@ -48,13 +36,28 @@ export async function donorboxDonations() {
 }
 
 export async function orders() {
-  const results = await airtable.orders()
-  console.log(JSON.stringify(results))
-  // Object.entries(orders).forEach(([id, fields) => {
-  
-  // }
+  const allOrders = await airtable.orders()
+  const ordersList = Object.entries(allOrders)
+  const modifiedDoc = await db.collection('airtable_util').doc('orders_modified').get()
+  const modified = modifiedDoc.data()
+  let updated = 0
+  for (let i = 0; i < ordersList.length; i++) {
+    const [rec_id, fields] = ordersList[i]
+    if (!modified || modified[rec_id] === undefined || modified[rec_id] < fields.modified_timestamp) {
+      const doc = Object.assign({}, fields, { record_id: rec_id })
+      await db.collection('orders').doc(rec_id).set(doc)
+      updated++
+    }
+  }
+  console.log(`updated ${updated}`)
+  return updated
+}
 
-  // console.log(Object.keys(orders))
+export async function updateOrderModifiedTimestamps(order: Order) {
+  const { record_id, modified_timestamp } = order
+  return db.collection('airtable_util').doc('orders_modified').set({
+    [record_id]: modified_timestamp
+  }, { merge: true })
 }
 
 export async function updateDonationDay(donation: Donation) {

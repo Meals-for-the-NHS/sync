@@ -12,3 +12,8 @@ export type DonationSummary = {
   amount: number,
   donors: number
 }
+
+export type Order = {
+  record_id: string,
+  modified_timestamp: Date
+}
