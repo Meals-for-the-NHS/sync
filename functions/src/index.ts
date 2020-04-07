@@ -1,6 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as sync from './sync'
-import { Donation, DonationSummary, Order } from './types'
+import { Donation, DonationSummary, AirtableRecord } from './types'
 
 const europeFunctions = functions.region('europe-west2') // London
 
@@ -27,7 +27,8 @@ exports.onNewDonation = europeFunctions.firestore
 exports.onDonationDayWrite = europeFunctions.firestore
   .document('aggregates/donations/days/{id}')
   .onWrite((change) => {
-    return sync.updateDonationsTotal(<DonationSummary> change.after.data())
+    return sync.updateDonationsTotal(<DonationSummary> change.before.data(),
+                                     <DonationSummary> change.after.data())
   })
 
 exports.scheduledSponsors = europeFunctions.pubsub
@@ -36,6 +37,20 @@ exports.scheduledSponsors = europeFunctions.pubsub
   .onRun(() => {
     return sync.hospitalSponsors()
   })
+
+exports.updateDonationsAirtable = europeFunctions.https.onRequest(async (_, res) => {
+  await sync.donationsAirtable()
+  res.send('ok')
+})
+
+
+exports.scheduledDonationsAirtable = europeFunctions.pubsub
+  .schedule('5,36 * * * *')
+  .timeZone('Europe/London')
+  .onRun(() => {
+    return sync.donationsAirtable()
+  })
+
 
 ////////////////////////////////////
 /// orders
@@ -58,9 +73,39 @@ exports.updateOrders = europeFunctions.https.onRequest(async (_, res) => {
 
 exports.onOrderWrite = europeFunctions.firestore
   .document('orders/{id}')
-  .onCreate((snapshot) => {
-    return sync.updateOrderModifiedTimestamps(<Order> snapshot.data())
+  .onCreate(async (snapshot) => {
+    const record = <AirtableRecord> snapshot.data()
+    await sync.updateModifiedTimestamps('orders', record)
+    return sync.createMaster('orders', record)
   })
+
+////////////////////////////////////
+/// hospitals
+
+exports.scheduledHospitals = europeFunctions.pubsub
+  .schedule('every 30 minutes')
+  .timeZone('Europe/London')
+  .onRun((context) => {
+    const hour = (new Date(context.timestamp)).getHours()
+    if (hour > 5 && hour < 10) {
+      return sync.hospitals()
+    }
+    return true
+  })
+
+exports.onHospitalWrite = europeFunctions.firestore
+  .document('hospitals/{id}')
+  .onCreate(async (snapshot) => {
+    const record = <AirtableRecord> snapshot.data()
+    await sync.updateModifiedTimestamps('hospitals', record)
+    return sync.createMaster('hospitals', record)
+  })
+
+exports.updateHospitals = europeFunctions.https.onRequest(async (_, res) => {
+  const count = await sync.hospitals()
+  res.send({ updated: count })
+})
+
 
 ////////////////////////////////////
 /// cases

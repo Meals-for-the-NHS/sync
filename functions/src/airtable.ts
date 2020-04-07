@@ -1,10 +1,6 @@
 import * as functions from 'firebase-functions'
 import * as Airtable from 'airtable'
-import { DonationSummary, Cases } from './types'
-
-type Table = {
-  [key: string]: { [k: string]: any }
-}
+import { Table, DonationSummary, TableUpdateData } from './types'
 
 const airtable = new Airtable({
   apiKey: functions.config().airtable.key
@@ -36,56 +32,84 @@ export async function sponsors(): Promise<DonationSummary> {
 }
 
 export async function orders() {
-  const table = await fetchTable('Order Tracker', { view: 'Raw' })
-  return table
+  return fetchTable('Order Tracker', { view: 'Raw' })
 }
 
-export async function updateCases(casesByLA: Cases) {
-  const tableName = 'Cases (All hospitals)'
+export async function hospitals() {
+  return fetchTable('Hospitals', { view: 'All hospitals' })
+}
+
+type TableUpdate = {
+  tableName: string,
+  lookupField: string,
+  updateFields: string[],
+  newData: TableUpdateData
+}
+
+export async function updateTable({ tableName, lookupField, updateFields, newData }: TableUpdate) {
   const currentTable = await fetchTable(tableName)
-  const laMap: { [la:string]: string } = {}
+  const lookupMap: { [key:string]: string } = {}
   Object.entries(currentTable).forEach(([id, fields]) => {
-    laMap[fields['Local Authority']] = id
+    lookupMap[fields[lookupField].toString()] = id
   })
 
-  const cases = Object.entries(casesByLA)
   let toUpdate = [], toAdd = []
-  for (const laCase of cases) {
-    const [la, noCases] = laCase
-    const recordId = laMap[la]
+  const commitThreshold = 10 // from the Airtable docs
+
+  const commit = async (method: string, rows: any) => {
+    try {
+      await (<any>base(tableName))[method](rows)
+      return true
+    } catch (e) {
+      console.log(e)
+      return false
+    }
+  }
+  
+  for (const [key, data] of Object.entries(newData)) {
+    const recordId = lookupMap[key]
+    let fields: any = {
+      'Updated': new Date(),
+    }
+    
+    updateFields.forEach((field) => {
+      fields[field] = data[field]
+    })
 
     if (recordId) {
-      toUpdate.push({
-        id: laMap[la],
-        fields: {
-          'Cumulative Cases': noCases,
-          'Updated': new Date()
-        }
-      })
+      toUpdate.push({ id: recordId, fields })
     } else {
       toAdd.push({
-        fields: {
-          'Local Authority': la,
-          'Cumulative Cases': noCases,
-          'Updated': new Date()
-        }
+        fields: Object.assign({}, fields, { [lookupField]: key })
       })
     }
       
-    if (toUpdate.length >= 10) {
-      await base(tableName).update(toUpdate)
+    if (toUpdate.length >= commitThreshold) {
+      const ok = await commit('update', toUpdate)
+      if (!ok) {
+        return
+      }
       toUpdate = []
     }
-    if (toAdd.length >= 10) {
-      await base(tableName).create(toAdd)
+    if (toAdd.length >= commitThreshold) {
+      const ok = await commit('create', toAdd)
+      if (!ok) {
+        return
+      }
       toAdd = []
     }
   }
 
   if (toUpdate.length > 0) {
-    await base(tableName).update(toUpdate)
+    const ok = await commit('update', toUpdate)
+    if (!ok) {
+      return
+    }
   }
   if (toAdd.length > 0) {
-    await base(tableName).create(toAdd)
+    const ok = await commit('create', toAdd)
+    if (!ok) {
+      return
+    }
   }
 }

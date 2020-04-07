@@ -1,3 +1,7 @@
+export type Table = {
+  [key: string]: { [k: string]: any }
+}
+
 export type Donation = {
   source: string
   donor: string,
@@ -13,9 +17,11 @@ export type DonationSummary = {
   donors: number
 }
 
-export type Order = {
+export type AirtableRecord = {
   record_id: string,
   modified_timestamp: Date
 }
 
 export type Cases = { [la:string]: number }
+
+export type TableUpdateData = { [k: string] : any }

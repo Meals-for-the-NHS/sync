@@ -4,7 +4,7 @@ import * as moment from 'moment'
 import * as donorbox from './donorbox'
 import * as airtable from './airtable'
 import * as guardian from './guardian'
-import { Donation, DonationSummary, Order } from './types'
+import { Table, Donation, DonationSummary, AirtableRecord, TableUpdateData } from './types'
 
 admin.initializeApp()
 const db = admin.firestore()
@@ -36,17 +36,26 @@ export async function donorboxDonations() {
   return count
 }
 
-export async function orders() {
-  const allOrders = await airtable.orders()
-  const ordersList = Object.entries(allOrders)
-  const modifiedDoc = await db.collection('airtable_util').doc('orders_modified').get()
+async function syncTable(name: string) {
+  let func: (() => Promise<Table>)
+  // this is horrible... is there a better way in TS?
+  if (name === 'orders') {
+    func = airtable.orders
+  } else if (name === 'hospitals') {
+    func = airtable.hospitals
+  } else {
+    return null
+  }
+  const data: Table  = await func()
+  const dataList = Object.entries(data)
+  const modifiedDoc = await db.collection('airtable_util').doc(`${name}_modified`).get()
   const modified = modifiedDoc.data()
   let updated = 0
-  for (const order of ordersList) {
-    const [rec_id, fields] = order
+  for (const record of dataList) {
+    const [rec_id, fields] = record
     if (!modified || modified[rec_id] === undefined || modified[rec_id] < fields.modified_timestamp) {
       const doc = Object.assign({}, fields, { record_id: rec_id })
-      await db.collection('orders').doc(rec_id).set(doc)
+      await db.collection(name).doc(rec_id).set(doc)
       updated++
     }
   }
@@ -54,10 +63,20 @@ export async function orders() {
   return updated
 }
 
-export async function updateOrderModifiedTimestamps(order: Order) {
-  const { record_id, modified_timestamp } = order
-  return db.collection('airtable_util').doc('orders_modified').set({
+export const orders = () => syncTable('orders')
+export const hospitals = () => syncTable('hospitals')
+
+export async function updateModifiedTimestamps(collection: string, record: AirtableRecord) {
+  const { record_id, modified_timestamp } = record
+  return db.collection('airtable_util').doc(`${collection}_modified`).set({
     [record_id]: modified_timestamp
+  }, { merge: true })
+}
+
+
+export async function createMaster(collection: string, record: AirtableRecord) {
+  return db.collection(collection).doc('all').set({
+    [record.record_id]: record
   }, { merge: true })
 }
 
@@ -80,15 +99,26 @@ export async function updateDonationDay(donation: Donation) {
   }
 }
 
-export async function updateDonationsTotal(summary: DonationSummary) {
-  const { amount, donors } = summary
+export async function updateDonationsTotal(before: DonationSummary, after: DonationSummary) {
+  let amount = after.amount
+  let donors = after.donors
+  if (before) {
+    amount -= before.amount
+    donors -= before.donors
+  }
+
   const docRef = db.doc('aggregates/donations')
   const doc = await docRef.get()
   const current = doc.data()!
+  let ca = 0, cd = 0
+  if (current.donorbox) {
+    ca = current.donorbox.amount || 0
+    cd = current.donorbox.donors || 0
+  }
   return docRef.set({
     donorbox: {
-      amount: current.amount || 0 + amount,
-      donors: current.donors || 0 + donors
+      amount: ca + amount,
+      donors: cd + donors
     }
   }, { merge: true })
 }
@@ -102,5 +132,57 @@ export async function hospitalSponsors() {
 
 export async function cases() {
   const casesByLA = await guardian.casesByLocalAuthority()
-  return airtable.updateCases(casesByLA)
+  const newData: TableUpdateData = {}
+  Object.entries(casesByLA).forEach(([la, _cases]) => {
+    newData[la] = {
+      'Cumulative Cases': _cases
+    }
+  })
+
+  return airtable.updateTable({
+    tableName: 'Cases (All hospitals)',
+    lookupField: 'Local Authority',
+    updateFields: ['Cumulative Cases'],
+    newData
+  })
+}
+
+export async function donationsAirtable() {
+  const snapshot = await db.collection('aggregates').doc('donations').collection('days').get()
+  const newData: TableUpdateData = {}
+  const docsList: { id: string, data: any }[] = []
+  
+  snapshot.forEach((doc) => {
+    docsList.push({
+      id: doc.id,
+      data: doc.data()
+    })
+  })
+
+  docsList.sort((a, b) => a.id.localeCompare(b.id))
+
+  let cumulativeAmount = 0, cumulativeDonors = 0
+  docsList.forEach((doc) => {
+    const { id, data } = doc
+    const { amount, donors } = data
+    cumulativeAmount += amount
+    cumulativeDonors += donors
+    const year = id.substr(0, 4)
+    const month = id.substr(4, 2)
+    const day = id.substr(6, 2)
+
+    newData[`${year}-${month}-${day}`] = {
+      'Amount': amount,
+      'Donors': donors,
+      'Cumulative Amount': cumulativeAmount,
+      'Cumulative Donors': cumulativeDonors
+    }
+  })
+
+  return airtable.updateTable({
+    tableName: 'Donations',
+    lookupField: 'Date',
+    updateFields: ['Amount', 'Donors', 'Cumulative Amount', 'Cumulative Donors'],
+    newData
+  })
 }
