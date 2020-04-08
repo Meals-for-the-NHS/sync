@@ -65,7 +65,7 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
       .onRun((context) => {
         const hour = (new Date(context.timestamp)).getHours()
         if (hour > 5 && hour < 10) {
-          return (<any>sync)[name]()
+          return sync.syncAirTable(name)
         }
         return true
       })
@@ -75,6 +75,7 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
     .document(`${name}/{id}`)
     .onWrite(async (change) => {
       const record = <AirtableRecord> change.after.data()
+      await sync.insertCoordinates(change.after)
       return sync.updateModifiedTimestamps(name, record)
     })
 
@@ -90,9 +91,9 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
   
 }
 
-addAirtableExports({ name: 'hospitals', schedule: 'every hour' })
+addAirtableExports({ name: 'hospitals', schedule: 'every 30 minutes' })
 //addAirtableExports({ name: 'orders', schedule: 'every 15 minutes' })
-addAirtableExports({ name: 'providers',  schedule: 'every hour' })
+addAirtableExports({ name: 'providers',  schedule: 'every 2 hours' })
 
 ////////////////////////////////////
 /// cases
@@ -109,3 +110,4 @@ exports.scheduledCases = europeFunctions.pubsub
   .onRun(() => {
     return sync.cases()
   })
+

@@ -14,6 +14,7 @@
   },
   "main": "lib/index.js",
   "dependencies": {
+    "@googlemaps/google-maps-services-js": "^2.4.3",
     "@types/airtable": "^0.5.7",
     "@types/node-fetch": "^2.5.5",
     "airtable": "^0.8.1",

@@ -51,7 +51,8 @@ export async function providers() {
   return fetchTable('Providers', {
     view: 'sync',
     fields: [
-      'Status', 'Orders', 'Cuisine', 'Meal number', 'Location', 'Resturant city'
+      'Restaurant Name', 'Status', 'Orders', 'Cuisine', 'Meal number',
+      'Location', 'Restaurant city'
     ]
   })
 }
@@ -66,9 +67,12 @@ type TableUpdate = {
 
 export async function updateTable({ tableName, lookupField, updateFields, newData }: TableUpdate) {
   const currentTable = await fetchTable(tableName)
+  console.log(currentTable)
   const lookupMap: { [key:string]: string } = {}
   Object.entries(currentTable).forEach(([id, fields]) => {
-    lookupMap[fields[lookupField].toString()] = id
+    if (lookupField in fields) {
+      lookupMap[fields[lookupField].toString()] = id
+    }
   })
 
   let toUpdate = [], toAdd = []

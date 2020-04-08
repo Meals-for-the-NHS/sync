@@ -4,6 +4,7 @@ import * as moment from 'moment'
 import * as donorbox from './donorbox'
 import * as airtable from './airtable'
 import * as guardian from './guardian'
+import { geocode } from './geocode'
 import { Table, Donation, DonationSummary, AirtableRecord, TableUpdateData } from './types'
 
 admin.initializeApp()
@@ -43,16 +44,21 @@ export async function syncAirTable(name: string) {
   try {
     const modifiedDoc = await db.collection('airtable_util').doc(`${name}_modified`).get()
     const modified = modifiedDoc.data()
-    const batch = db.batch()
-
+    let batch = db.batch()
+    
     for (const record of dataList) {
       const [rec_id, fields] = record
       const timestamp = new Date(fields.modified_timestamp)
       if (!modified || modified[rec_id] === undefined || modified[rec_id] < timestamp) {
         const newData = Object.assign({}, fields, { record_id: rec_id })
         const doc = db.collection(name).doc(rec_id)
-        batch.set(doc, newData)
+        batch.set(doc, newData, { merge: true })
         updated++
+
+        if (updated % 400 === 0) {
+          await batch.commit()
+          batch = db.batch()
+        }
       }
     }
     await batch.commit()
@@ -67,9 +73,12 @@ export async function syncAirTable(name: string) {
 
 export async function updateModifiedTimestamps(collection: string, record: AirtableRecord) {
   const { record_id, modified_timestamp } = record
-  return db.collection('airtable_util').doc(`${collection}_modified`).set({
-    [record_id]: new Date(modified_timestamp)
-  }, { merge: true })
+  if (modified_timestamp) {
+      return db.collection('airtable_util').doc(`${collection}_modified`).set({
+        [record_id]: new Date(modified_timestamp)
+      }, { merge: true })
+  }
+  return false
 }
 
 export async function getAirtable(name: string) {
@@ -182,4 +191,30 @@ export async function donationsAirtable() {
     updateFields: ['Amount', 'Donors', 'Cumulative Amount', 'Cumulative Donors'],
     newData
   })
+}
+
+
+export async function insertCoordinates(snapshot: admin.firestore.DocumentSnapshot) {
+  const data = snapshot.data()!
+  if (!data.coordinates) {
+    const candidates = ['Location', 'Postcode', 'postcode']
+    let key = null
+    candidates.forEach((c) => {
+      if (c in data) {
+        key = c
+      }
+    })
+    if (key) {
+      try {
+        const coordinates = await geocode(data[key])
+        return snapshot.ref.update({
+          coordinates
+        })
+      } catch (e) {
+        console.log(`error in geocode ${data[key]}`)
+        return false
+      }
+    }
+  }
+  return false
 }
