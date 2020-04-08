@@ -36,48 +36,45 @@ export async function donorboxDonations() {
   return count
 }
 
-async function syncTable(name: string) {
-  let func: (() => Promise<Table>)
-  // this is horrible... is there a better way in TS?
-  if (name === 'orders') {
-    func = airtable.orders
-  } else if (name === 'hospitals') {
-    func = airtable.hospitals
-  } else {
-    return null
-  }
-  const data: Table  = await func()
-  const dataList = Object.entries(data)
-  const modifiedDoc = await db.collection('airtable_util').doc(`${name}_modified`).get()
-  const modified = modifiedDoc.data()
+export async function syncAirTable(name: string) {
+  const airtableData: Table  = await (<any>airtable)[name]()
+  const dataList = Object.entries(airtableData)
   let updated = 0
-  for (const record of dataList) {
-    const [rec_id, fields] = record
-    if (!modified || modified[rec_id] === undefined || modified[rec_id] < fields.modified_timestamp) {
-      const doc = Object.assign({}, fields, { record_id: rec_id })
-      await db.collection(name).doc(rec_id).set(doc)
-      updated++
+  try {
+    const modifiedDoc = await db.collection('airtable_util').doc(`${name}_modified`).get()
+    const modified = modifiedDoc.data()
+    const batch = db.batch()
+
+    for (const record of dataList) {
+      const [rec_id, fields] = record
+      const timestamp = new Date(fields.modified_timestamp)
+      if (!modified || modified[rec_id] === undefined || modified[rec_id] < timestamp) {
+        const newData = Object.assign({}, fields, { record_id: rec_id })
+        const doc = db.collection(name).doc(rec_id)
+        batch.set(doc, newData)
+        updated++
+      }
     }
+    await batch.commit()
+    await db.collection(name).doc('xall').set(airtableData)
+  } catch (e) {
+    console.error(e)
   }
+  
   console.log(`updated ${updated}`)
   return updated
 }
 
-export const orders = () => syncTable('orders')
-export const hospitals = () => syncTable('hospitals')
-
 export async function updateModifiedTimestamps(collection: string, record: AirtableRecord) {
   const { record_id, modified_timestamp } = record
   return db.collection('airtable_util').doc(`${collection}_modified`).set({
-    [record_id]: modified_timestamp
+    [record_id]: new Date(modified_timestamp)
   }, { merge: true })
 }
 
-
-export async function createMaster(collection: string, record: AirtableRecord) {
-  return db.collection(collection).doc('all').set({
-    [record.record_id]: record
-  }, { merge: true })
+export async function getAirtable(name: string) {
+  const doc = await db.collection(name).doc('xall').get()
+  return Object.values(doc.data()!)
 }
 
 export async function updateDonationDay(donation: Donation) {

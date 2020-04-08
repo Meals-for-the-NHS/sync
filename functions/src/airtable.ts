@@ -36,8 +36,26 @@ export async function orders() {
 }
 
 export async function hospitals() {
-  return fetchTable('Hospitals', { view: 'All hospitals' })
+  return fetchTable('Hospitals', {
+    view: 'sync',
+    fields: [
+      'Status', 'Hospital Name', 'Orders', 'Departments fed',
+      'Area', 'NHS Trust', 'Number of orders', 'Hospital ID',
+      'Region', 'Local Authority', 'City', 'Postcode', 'Priority Target',
+      'Meal number', 'modified_timestamp'
+    ]
+  })
 }
+
+export async function providers() {
+  return fetchTable('Providers', {
+    view: 'sync',
+    fields: [
+      'Status', 'Orders', 'Cuisine', 'Meal number', 'Location', 'Resturant city'
+    ]
+  })
+}
+
 
 type TableUpdate = {
   tableName: string,

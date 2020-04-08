@@ -53,59 +53,46 @@ exports.scheduledDonationsAirtable = europeFunctions.pubsub
 
 
 ////////////////////////////////////
-/// orders
+/// Airtable
 
-exports.scheduledOrders = europeFunctions.pubsub
-  .schedule('every 10 minutes')
-  .timeZone('Europe/London')
-  .onRun((context) => {
-    const hour = (new Date(context.timestamp)).getHours()
-    if (hour > 5 && hour < 10) {
-      return sync.orders()
-    }
-    return true
+function addAirtableExports({ name, schedule }: { name: string, schedule?: string }) {
+  const titledName = name.charAt(0).toUpperCase() + name.slice(1)
+  
+  if (schedule) {
+    exports[`scheduled${titledName}`] = europeFunctions.pubsub
+      .schedule(schedule)
+      .timeZone('Europe/London')
+      .onRun((context) => {
+        const hour = (new Date(context.timestamp)).getHours()
+        if (hour > 5 && hour < 10) {
+          return (<any>sync)[name]()
+        }
+        return true
+      })
+  }
+
+  exports[`on${titledName}Write`] = europeFunctions.firestore
+    .document(`${name}/{id}`)
+    .onWrite(async (change) => {
+      const record = <AirtableRecord> change.after.data()
+      return sync.updateModifiedTimestamps(name, record)
+    })
+
+  exports[`update${titledName}`] = europeFunctions.https.onRequest(async (_, res) => {
+    const count = await sync.syncAirTable(name)
+    res.send({ updated: count })
   })
 
-exports.updateOrders = europeFunctions.https.onRequest(async (_, res) => {
-  const count = await sync.orders()
-  res.send({ updated: count })
-})
-
-exports.onOrderWrite = europeFunctions.firestore
-  .document('orders/{id}')
-  .onCreate(async (snapshot) => {
-    const record = <AirtableRecord> snapshot.data()
-    await sync.updateModifiedTimestamps('orders', record)
-    return sync.createMaster('orders', record)
+  exports[name] = europeFunctions.https.onRequest(async (_, res) => {
+    const data = await sync.getAirtable(name)
+    res.send(data)
   })
+  
+}
 
-////////////////////////////////////
-/// hospitals
-
-exports.scheduledHospitals = europeFunctions.pubsub
-  .schedule('every 30 minutes')
-  .timeZone('Europe/London')
-  .onRun((context) => {
-    const hour = (new Date(context.timestamp)).getHours()
-    if (hour > 5 && hour < 10) {
-      return sync.hospitals()
-    }
-    return true
-  })
-
-exports.onHospitalWrite = europeFunctions.firestore
-  .document('hospitals/{id}')
-  .onCreate(async (snapshot) => {
-    const record = <AirtableRecord> snapshot.data()
-    await sync.updateModifiedTimestamps('hospitals', record)
-    return sync.createMaster('hospitals', record)
-  })
-
-exports.updateHospitals = europeFunctions.https.onRequest(async (_, res) => {
-  const count = await sync.hospitals()
-  res.send({ updated: count })
-})
-
+addAirtableExports({ name: 'hospitals', schedule: 'every hour' })
+//addAirtableExports({ name: 'orders', schedule: 'every 15 minutes' })
+addAirtableExports({ name: 'providers',  schedule: 'every hour' })
 
 ////////////////////////////////////
 /// cases
