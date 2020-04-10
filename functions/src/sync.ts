@@ -45,12 +45,15 @@ export async function syncAirTable(name: string) {
     const modifiedDoc = await db.collection('airtable_util').doc(`${name}_modified`).get()
     const modified = modifiedDoc.data()
     let batch = db.batch()
-    
     for (const record of dataList) {
       const [rec_id, fields] = record
-      const timestamp = new Date(fields.modified_timestamp)
-      if (!modified || modified[rec_id] === undefined || modified[rec_id] < timestamp) {
-        const newData = Object.assign({}, fields, { record_id: rec_id })
+      const timestamp = moment(fields.modified_timestamp, 'D/M/YYYY H:ma')
+      if (timestamp.isValid() &&
+          (!modified || modified[rec_id] === undefined || modified[rec_id].toDate() < timestamp)) {
+        const newData = Object.assign({}, fields, {
+          record_id: rec_id,
+          modified_timestamp: timestamp
+        })
         const doc = db.collection(name).doc(rec_id)
         batch.set(doc, newData, { merge: true })
         updated++
@@ -62,7 +65,6 @@ export async function syncAirTable(name: string) {
       }
     }
     await batch.commit()
-    await db.collection(name).doc('xall').set(airtableData)
   } catch (e) {
     console.error(e)
   }
@@ -71,12 +73,24 @@ export async function syncAirTable(name: string) {
   return updated
 }
 
+export async function createMaster(collection: string) {
+  const snapshot = await db.collection(collection).get()
+  const docs: { [key:string]: any } = {}
+  snapshot.forEach((doc) => {
+    if (doc.id !== 'xall') {
+      docs[doc.id] = doc.data()
+    }
+  })
+  console.log(`creating master for ${collection}`)
+  await db.collection(collection).doc('xall').set(docs)
+}
+
 export async function updateModifiedTimestamps(collection: string, record: AirtableRecord) {
   const { record_id, modified_timestamp } = record
   if (modified_timestamp) {
-      return db.collection('airtable_util').doc(`${collection}_modified`).set({
-        [record_id]: new Date(modified_timestamp)
-      }, { merge: true })
+    return db.collection('airtable_util').doc(`${collection}_modified`).set({
+      [record_id]: modified_timestamp
+    }, { merge: true })
   }
   return false
 }
@@ -195,8 +209,8 @@ export async function donationsAirtable() {
 
 
 export async function insertCoordinates(snapshot: admin.firestore.DocumentSnapshot) {
-  const data = snapshot.data()!
-  if (!data.coordinates) {
+  const data = snapshot.data()
+  if (data && !data.coordinates) {
     const candidates = ['Location', 'Postcode', 'postcode']
     let key = null
     candidates.forEach((c) => {

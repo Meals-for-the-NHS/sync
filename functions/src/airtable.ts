@@ -9,7 +9,12 @@ const airtable = new Airtable({
 const base = airtable.base(functions.config().airtable.id)
 
 async function fetchTable(tableName: string, options = {}): Promise<Table> {
-  const query = base(tableName).select(options)
+  const query = base(tableName).select(<Airtable.SelectOptions> Object.assign({}, options,  {
+    cellFormat: 'string',
+    userLocale: 'en-gb',
+    timeZone: 'Europe/London'
+  }))
+                                       
   const output: Table = {}
 
   await query.eachPage((records: any, next: any) => {
@@ -39,6 +44,7 @@ export async function hospitals() {
   return fetchTable('Hospitals', {
     view: 'sync',
     fields: [
+      'Hospital Display Name',
       'Status', 'Hospital Name', 'Orders', 'Departments fed',
       'Area', 'NHS Trust', 'Number of orders', 'Hospital ID',
       'Region', 'Local Authority', 'City', 'Postcode', 'Priority Target',
@@ -52,7 +58,7 @@ export async function providers() {
     view: 'sync',
     fields: [
       'Restaurant Name', 'Status', 'Orders', 'Cuisine', 'Meal number',
-      'Location', 'Restaurant city'
+      'Location', 'Restaurant city', 'modified_timestamp'
     ]
   })
 }
@@ -67,7 +73,6 @@ type TableUpdate = {
 
 export async function updateTable({ tableName, lookupField, updateFields, newData }: TableUpdate) {
   const currentTable = await fetchTable(tableName)
-  console.log(currentTable)
   const lookupMap: { [key:string]: string } = {}
   Object.entries(currentTable).forEach(([id, fields]) => {
     if (lookupField in fields) {

@@ -6,14 +6,14 @@ export async function casesByLocalAuthority(): Promise<Cases> {
   const response = await fetch(url)
   const caseData = await response.json()
   const output: Cases  = {}
-  const countries = ['scotdata', 'walesdata']
-  countries.forEach((country) => {
-    caseData[country].forEach(({ board, cases }: { board: string, cases: string }) => {
-      if (board !== 'Wales total') {
-        output[board] = parseInt(cases)
-      }
-    })
-  })
+  // const countries = ['scotdata', 'walesdata']
+  // countries.forEach((country) => {
+  //   caseData[country].forEach(({ board, cases }: { board: string, cases: string }) => {
+  //     if (board !== 'Wales total') {
+  //       output[board] = parseInt(cases)
+  //     }
+  //   })
+  // })
 
   // england
   caseData.ladata.features.forEach(({ attributes }: { attributes: { GSS_NM: string, TotalCases: number } }) => {

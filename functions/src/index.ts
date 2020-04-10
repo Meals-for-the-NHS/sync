@@ -1,4 +1,6 @@
 import * as functions from 'firebase-functions'
+import * as express from 'express'
+import * as cors from 'cors'
 import * as sync from './sync'
 import { Donation, DonationSummary, AirtableRecord } from './types'
 
@@ -62,10 +64,12 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
     exports[`scheduled${titledName}`] = europeFunctions.pubsub
       .schedule(schedule)
       .timeZone('Europe/London')
-      .onRun((context) => {
+      .onRun(async (context) => {
         const hour = (new Date(context.timestamp)).getHours()
         if (hour > 5 && hour < 10) {
-          return sync.syncAirTable(name)
+          await sync.syncAirTable(name)
+          await new Promise((resolve) => { setTimeout(resolve, 20000) })
+          return sync.createMaster(name)
         }
         return true
       })
@@ -93,12 +97,12 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
 
 addAirtableExports({ name: 'hospitals', schedule: 'every 30 minutes' })
 //addAirtableExports({ name: 'orders', schedule: 'every 15 minutes' })
-addAirtableExports({ name: 'providers',  schedule: 'every 2 hours' })
+addAirtableExports({ name: 'providers',  schedule: 'every 40 minutes' })
 
 ////////////////////////////////////
 /// cases
 
-exports.cases = europeFunctions.https.onRequest(async (_, res) => {
+exports.updateCases = europeFunctions.https.onRequest(async (_, res) => {
   await sync.cases()
   res.send('ok')
 })
@@ -111,3 +115,22 @@ exports.scheduledCases = europeFunctions.pubsub
     return sync.cases()
   })
 
+
+
+
+const api = express()
+api.use(cors())
+
+function exposeCollection(name: string) {
+  api.get(`/${name}`, async (_, res) => {
+    const data = await sync.getAirtable(name)
+    res.send(data)
+  })
+}
+
+exposeCollection('hospitals')
+exposeCollection('providers')
+
+
+exports.api = europeFunctions.https.onRequest(api)
+        
