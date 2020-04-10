@@ -1,8 +1,10 @@
 import * as functions from 'firebase-functions'
 import * as express from 'express'
 import * as cors from 'cors'
+import * as moment from 'moment'
 import * as sync from './sync'
-import { Donation, DonationSummary, AirtableRecord } from './types'
+import * as slack from './slack'
+import { Donation, DonationSummary, DonationsTotal, AirtableRecord } from './types'
 
 const europeFunctions = functions.region('europe-west2') // London
 
@@ -31,6 +33,23 @@ exports.onDonationDayWrite = europeFunctions.firestore
   .onWrite((change) => {
     return sync.updateDonationsTotal(<DonationSummary> change.before.data(),
                                      <DonationSummary> change.after.data())
+  })
+
+exports.onDonationTotalWrite = europeFunctions.firestore
+  .document('aggregates/donations')
+  .onWrite(async (change) => {
+    const before = <DonationsTotal> change.before.data()
+    const after = <DonationsTotal> change.after.data()
+    const afterTotal = after.donorbox.amount + after.sponsors.amount
+    const beforeTotal = before.donorbox.amount + before.sponsors.amount
+    const target = 989100
+    if (afterTotal >= target && beforeTotal < target) {
+      const thousands = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+      await slack.postToGeneral(Array(12).fill(':tada:').join(' '))
+      const time = moment().format('HH:mm:ss DD/MM/YYYY')
+      return slack.postToGeneral(`@channel\n£${thousands(afterTotal)} has been raised\nFor those in the sweepstake, the official time is ${time}`)
+    }
+    return false
   })
 
 exports.scheduledSponsors = europeFunctions.pubsub

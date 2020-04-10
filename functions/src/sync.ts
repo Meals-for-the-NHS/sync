@@ -232,3 +232,4 @@ export async function insertCoordinates(snapshot: admin.firestore.DocumentSnapsh
   }
   return false
 }
+

@@ -17,6 +17,11 @@ export type DonationSummary = {
   donors: number
 }
 
+export type DonationsTotal = {
+  donorbox: DonationSummary,
+  sponsors: DonationSummary
+}
+
 export type AirtableRecord = {
   record_id: string,
   modified_timestamp: Date
