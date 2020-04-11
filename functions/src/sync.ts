@@ -24,6 +24,7 @@ export async function donorboxDonations() {
       await docRef.set({
         source: 'donorbox',
         donor: donor.name,
+        donor_fname: donor.first_name,
         amount: parseFloat(amount),
         currency,
         timestamp: new Date(donation_date),
@@ -60,7 +61,7 @@ export async function syncAirTable(name: string) {
   } catch (e) {
     console.error(e)
   }
-  
+
   console.log(`updated ${updated}`)
   return updated
 }
@@ -148,7 +149,7 @@ export async function donationsAirtable() {
   const snapshot = await db.collection('aggregates').doc('donations').collection('days').get()
   const newData: TableUpdateData = {}
   const docsList: { id: string, data: any }[] = []
-  
+
   snapshot.forEach((doc) => {
     docsList.push({
       id: doc.id,
