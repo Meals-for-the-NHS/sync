@@ -37,7 +37,15 @@ export async function sponsors(): Promise<DonationSummary> {
 }
 
 export async function orders() {
-  return fetchTable('Order Tracker', { view: 'Raw' })
+  return fetchTable('Order Tracker', {
+    view: 'sync',
+    fields: [
+      'Hospital', 'Food Supplier', 'Order Status', 'Delivery Date',
+      'Delivery Time', 'Number of Meals', 'Postcode', 'Delivery steps',
+      'Manager User', 'Estimated food cost', 'Order #',
+      'modified_timestamp', 
+    ]
+  })
 }
 
 export async function hospitals() {
@@ -58,7 +66,8 @@ export async function providers() {
     view: 'sync',
     fields: [
       'Restaurant Name', 'Status', 'Orders', 'Cuisine', 'Meal number',
-      'Location', 'Restaurant city', 'modified_timestamp'
+      'Location', 'Restaurant city', 'Contact owner', 'Hygiene rating',
+      'Meal Price', 'modified_timestamp'
     ]
   })
 }

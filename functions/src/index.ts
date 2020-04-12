@@ -1,10 +1,10 @@
 import * as functions from 'firebase-functions'
 import * as express from 'express'
 import * as cors from 'cors'
-import * as moment from 'moment'
 import * as sync from './sync'
 import * as slack from './slack'
 import { Donation, DonationSummary, DonationsTotal, AirtableRecord } from './types'
+import { thousands } from './util'
 
 const europeFunctions = functions.region('europe-west2') // London
 
@@ -42,12 +42,10 @@ exports.onDonationTotalWrite = europeFunctions.firestore
     const after = <DonationsTotal> change.after.data()
     const afterTotal = after.donorbox.amount + after.sponsors.amount
     const beforeTotal = before.donorbox.amount + before.sponsors.amount
-    const target = 989100
+    const target = 1000000
     if (afterTotal >= target && beforeTotal < target) {
-      const thousands = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
       await slack.postToGeneral(Array(12).fill(':tada:').join(' '))
-      const time = moment().format('HH:mm:ss DD/MM/YYYY')
-      return slack.postToGeneral(`@channel\n£${thousands(afterTotal)} has been raised\nFor those in the sweepstake, the official time is ${time}`)
+      return slack.postToGeneral(`It's official, £${thousands(afterTotal)} has been raised`)
     }
     return false
   })
@@ -102,8 +100,11 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
       return sync.updateModifiedTimestamps(name, record)
     })
 
-  exports[`update${titledName}`] = europeFunctions.https.onRequest(async (_, res) => {
-    const count = await sync.syncAirTable(name)
+  exports[`update${titledName}`] = europeFunctions.https.onRequest(async (req, res) => {
+    const { force } = req.query
+    const count = await sync.syncAirTable(name, !!force)
+    await new Promise((resolve) => { setTimeout(resolve, 10000) })
+    await sync.createMaster(name)
     res.send({ updated: count })
   })
 
@@ -115,7 +116,7 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
 }
 
 addAirtableExports({ name: 'hospitals', schedule: 'every 30 minutes' })
-//addAirtableExports({ name: 'orders', schedule: 'every 15 minutes' })
+addAirtableExports({ name: 'orders', schedule: 'every 15 minutes' })
 addAirtableExports({ name: 'providers',  schedule: 'every 40 minutes' })
 
 ////////////////////////////////////
