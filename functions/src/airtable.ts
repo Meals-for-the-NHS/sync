@@ -9,12 +9,8 @@ const airtable = new Airtable({
 const base = airtable.base(functions.config().airtable.id)
 
 async function fetchTable(tableName: string, options = {}): Promise<Table> {
-  const query = base(tableName).select(<Airtable.SelectOptions> Object.assign({}, options,  {
-    cellFormat: 'string',
-    userLocale: 'en-gb',
-    timeZone: 'Europe/London'
-  }))
-                                       
+  const query = base(tableName).select(<Airtable.SelectOptions> options)
+
   const output: Table = {}
 
   await query.eachPage((records: any, next: any) => {
@@ -27,7 +23,7 @@ async function fetchTable(tableName: string, options = {}): Promise<Table> {
 }
 
 export async function sponsors(): Promise<DonationSummary> {
-  const table = await fetchTable('Sponsor a Hospital', { view: 'Website data' })  
+  const table = await fetchTable('Sponsor a Hospital', { view: 'Website data' })
   const values = Object.values(table)
   const sum = values.reduce((prev, r) => r['Amount for Website'] + prev, 0)
   return {
@@ -43,8 +39,11 @@ export async function orders() {
       'Hospital', 'Food Supplier', 'Order Status', 'Delivery Date',
       'Delivery Time', 'Number of Meals', 'Postcode', 'Delivery steps',
       'Manager User', 'Estimated food cost', 'Order #',
-      'modified_timestamp', 
-    ]
+      'modified_timestamp',
+    ],
+    cellFormat: 'string',
+    userLocale: 'en-gb',
+    timeZone: 'Europe/London'
   })
 }
 
@@ -57,7 +56,10 @@ export async function hospitals() {
       'Area', 'NHS Trust', 'Number of orders', 'Hospital ID',
       'Region', 'Local Authority', 'City', 'Postcode', 'Priority Target',
       'Meal number', 'modified_timestamp'
-    ]
+    ],
+    cellFormat: 'string',
+    userLocale: 'en-gb',
+    timeZone: 'Europe/London'
   })
 }
 
@@ -68,9 +70,23 @@ export async function providers() {
       'Restaurant Name', 'Status', 'Orders', 'Cuisine', 'Meal number',
       'Location', 'Restaurant city', 'Contact owner', 'Hygiene rating',
       'Meal Price', 'modified_timestamp'
+    ],
+    cellFormat: 'string',
+    userLocale: 'en-gb',
+    timeZone: 'Europe/London'
+  })
+}
+
+export async function team() {
+  return fetchTable('Team', {
+    view: 'On Website',
+    fields: [
+      'Name', 'Bio', 'Team', 'Picture', 'Linkedin',
+      'modified_timestamp'
     ]
   })
 }
+
 
 
 type TableUpdate = {
@@ -101,13 +117,13 @@ export async function updateTable({ tableName, lookupField, updateFields, newDat
       return false
     }
   }
-  
+
   for (const [key, data] of Object.entries(newData)) {
     const recordId = lookupMap[key]
     let fields: any = {
       'Updated': new Date(),
     }
-    
+
     updateFields.forEach((field) => {
       fields[field] = data[field]
     })
@@ -119,7 +135,7 @@ export async function updateTable({ tableName, lookupField, updateFields, newDat
         fields: Object.assign({}, fields, { [lookupField]: key })
       })
     }
-      
+
     if (toUpdate.length >= commitThreshold) {
       const ok = await commit('update', toUpdate)
       if (!ok) {

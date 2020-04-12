@@ -8,7 +8,7 @@ import { geocode } from './geocode'
 import { Table, Donation, DonationSummary, AirtableRecord, TableUpdateData } from './types'
 
 admin.initializeApp()
-const db = admin.firestore()
+export const db = admin.firestore()
 
 export async function donorboxDonations() {
   const donations = await donorbox.donations()
@@ -36,6 +36,7 @@ export async function donorboxDonations() {
         mailing_list: join_mailing_list,
         timestamp: new Date(donation_date),
         comment,
+        commented: !!comment,
         donor_box_fee: processing_fee || 0
       })
     }
@@ -54,7 +55,11 @@ export async function syncAirTable(name: string, force = false) {
     let batch = db.batch()
     for (const record of dataList) {
       const [rec_id, fields] = record
-      const timestamp = moment(fields.modified_timestamp, 'D/M/YYYY H:ma')
+      let timestamp = moment(fields.modified_timestamp, 'D/M/YYYY H:ma')
+      if (!timestamp.isValid()) {
+        // if record not retrieved as string
+        timestamp = moment(fields.modified_timestamp)
+      }
       if (force ||
           (!modified || modified[rec_id] === undefined ||
             modified[rec_id].toDate() < timestamp)) {

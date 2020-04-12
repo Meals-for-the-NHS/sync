@@ -1,8 +1,7 @@
 import * as functions from 'firebase-functions'
-import * as express from 'express'
-import * as cors from 'cors'
 import * as sync from './sync'
 import * as slack from './slack'
+import { api } from './api'
 import { Donation, DonationSummary, DonationsTotal, AirtableRecord } from './types'
 import { thousands } from './util'
 
@@ -73,10 +72,11 @@ exports.scheduledDonationsAirtable = europeFunctions.pubsub
 
 ////////////////////////////////////
 /// Airtable
+const wantsCoordinates = ['providers', 'hospitals']
 
 function addAirtableExports({ name, schedule }: { name: string, schedule?: string }) {
   const titledName = name.charAt(0).toUpperCase() + name.slice(1)
-  
+
   if (schedule) {
     exports[`scheduled${titledName}`] = europeFunctions.pubsub
       .schedule(schedule)
@@ -96,7 +96,9 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
     .document(`${name}/{id}`)
     .onWrite(async (change) => {
       const record = <AirtableRecord> change.after.data()
-      await sync.insertCoordinates(change.after)
+      if (wantsCoordinates.some(e => e === name)) {
+        await sync.insertCoordinates(change.after)
+      }
       return sync.updateModifiedTimestamps(name, record)
     })
 
@@ -112,12 +114,12 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
     const data = await sync.getAirtable(name)
     res.send(data)
   })
-  
 }
 
-addAirtableExports({ name: 'hospitals', schedule: 'every 30 minutes' })
+addAirtableExports({ name: 'hospitals', schedule: 'every 15 minutes' })
 addAirtableExports({ name: 'orders', schedule: 'every 15 minutes' })
-addAirtableExports({ name: 'providers',  schedule: 'every 40 minutes' })
+addAirtableExports({ name: 'providers',  schedule: 'every 15 minutes' })
+addAirtableExports({ name: 'team',  schedule: 'every 8 hours' })
 
 ////////////////////////////////////
 /// cases
@@ -137,20 +139,4 @@ exports.scheduledCases = europeFunctions.pubsub
 
 
 
-
-const api = express()
-api.use(cors())
-
-function exposeCollection(name: string) {
-  api.get(`/${name}`, async (_, res) => {
-    const data = await sync.getAirtable(name)
-    res.send(data)
-  })
-}
-
-exposeCollection('hospitals')
-exposeCollection('providers')
-
-
 exports.api = europeFunctions.https.onRequest(api)
-        
