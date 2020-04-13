@@ -4,7 +4,7 @@ import * as moment from 'moment'
 import * as donorbox from './donorbox'
 import * as airtable from './airtable'
 import * as guardian from './guardian'
-import { geocode } from './geocode'
+import { geocode } from './maps'
 import { Table, Donation, DonationSummary, AirtableRecord, TableUpdateData } from './types'
 
 admin.initializeApp()
@@ -245,4 +245,28 @@ export async function insertCoordinates(snapshot: admin.firestore.DocumentSnapsh
     }
   }
   return false
+}
+
+export async function updateHospitalsWithCloseProviders() {
+  const hospitalsQuery = await db.collection('hospitals').get()
+  const hospitals: any[] = []
+  hospitalsQuery.forEach((doc) => {
+    hospitals.push(doc.data())
+  })
+
+  for (const hospital of hospitals) {
+    if (hospital.close_providers) {
+      const providers = hospital.close_providers.map((p:any) => p.record_id)
+      try {
+        await airtable.updateField({
+          tableName: 'Hospitals',
+          recordID: hospital.record_id,
+          field: 'Providers within 30mins',
+          value: providers
+        })
+      } catch (e) {
+        console.error(e)
+      }
+    }
+  }
 }

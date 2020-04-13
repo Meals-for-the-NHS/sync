@@ -138,5 +138,12 @@ exports.scheduledCases = europeFunctions.pubsub
   })
 
 
+exports.updateHospitalsWithCloseProviders = europeFunctions
+  .runWith({
+    timeoutSeconds: 300
+  }).https.onRequest(async (_, res) => {
+  await sync.updateHospitalsWithCloseProviders()
+  res.send('ok')
+})
 
 exports.api = europeFunctions.https.onRequest(api)

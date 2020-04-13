@@ -38,7 +38,7 @@ export async function orders() {
     fields: [
       'Hospital', 'Food Supplier', 'Order Status', 'Delivery Date',
       'Delivery Time', 'Number of Meals', 'Postcode', 'Delivery steps',
-      'Manager User', 'Estimated food cost', 'Order #',
+      'Manager User', 'Estimated food cost', 'Order #', 'City',
       'modified_timestamp',
     ],
     cellFormat: 'string',
@@ -164,4 +164,15 @@ export async function updateTable({ tableName, lookupField, updateFields, newDat
       return
     }
   }
+}
+
+type FieldUpdate = { tableName: string, recordID: string, field: string, value: any }
+
+export async function updateField({ tableName, recordID, field, value } : FieldUpdate) {
+  return base(tableName).update([{
+    id: recordID,
+    fields: {
+      [field]: value
+    }
+  }])
 }
