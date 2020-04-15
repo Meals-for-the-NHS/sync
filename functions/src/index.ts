@@ -1,9 +1,7 @@
 import * as functions from 'firebase-functions'
 import * as sync from './sync'
-import * as slack from './slack'
 import { api } from './api'
 import { Donation, DonationSummary, DonationsTotal, AirtableRecord } from './types'
-import { thousands } from './util'
 
 const europeFunctions = functions.region('europe-west2') // London
 
@@ -37,16 +35,7 @@ exports.onDonationDayWrite = europeFunctions.firestore
 exports.onDonationTotalWrite = europeFunctions.firestore
   .document('aggregates/donations')
   .onWrite(async (change) => {
-    const before = <DonationsTotal> change.before.data()
-    const after = <DonationsTotal> change.after.data()
-    const afterTotal = after.donorbox.amount + after.sponsors.amount
-    const beforeTotal = before.donorbox.amount + before.sponsors.amount
-    const target = 1000000
-    if (afterTotal >= target && beforeTotal < target) {
-      await slack.postToGeneral(Array(12).fill(':tada:').join(' '))
-      return slack.postToGeneral(`It's official, £${thousands(afterTotal)} has been raised`)
-    }
-    return false
+    return sync.addDonationsToSummary(<DonationsTotal> change.after.data())
   })
 
 exports.scheduledSponsors = europeFunctions.pubsub
@@ -85,7 +74,7 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
         const hour = (new Date(context.timestamp)).getHours()
         if (hour > 5 && hour < 10) {
           await sync.syncAirTable(name)
-          await new Promise((resolve) => { setTimeout(resolve, 20000) })
+          await new Promise((resolve) => { setTimeout(resolve, 5000) })
           return sync.createMaster(name)
         }
         return true
@@ -105,7 +94,7 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
   exports[`update${titledName}`] = europeFunctions.https.onRequest(async (req, res) => {
     const { force } = req.query
     const count = await sync.syncAirTable(name, !!force)
-    await new Promise((resolve) => { setTimeout(resolve, 10000) })
+    await new Promise((resolve) => { setTimeout(resolve, 5000) })
     await sync.createMaster(name)
     res.send({ updated: count })
   })

@@ -55,7 +55,7 @@ export async function hospitals() {
       'Status', 'Hospital Name', 'Orders', 'Departments fed',
       'Area', 'NHS Trust', 'Number of orders', 'Hospital ID',
       'Region', 'Local Authority', 'City', 'Postcode', 'Priority Target',
-      'Meal number', 'modified_timestamp'
+      'modified_timestamp'
     ],
     cellFormat: 'string',
     userLocale: 'en-gb',

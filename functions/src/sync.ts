@@ -5,7 +5,11 @@ import * as donorbox from './donorbox'
 import * as airtable from './airtable'
 import * as guardian from './guardian'
 import { geocode } from './maps'
-import { Table, Donation, DonationSummary, AirtableRecord, TableUpdateData } from './types'
+import { onlyKeys } from './util'
+import {
+  Table, Donation, DonationSummary, DonationsTotal,
+  AirtableRecord, TableUpdateData
+} from './types'
 
 admin.initializeApp()
 export const db = admin.firestore()
@@ -89,14 +93,68 @@ export async function syncAirTable(name: string, force = false) {
   return updated
 }
 
+const customAggregateDispatch: { [collection: string]: (docs: any) => Promise<unknown> } = {}
+
+customAggregateDispatch['hospitals'] = (docs) => {
+  const receiving = Object.values(docs)
+    .filter((h: any) => h.Status && h.Status.match(/receiving/i))
+    .map((h: any) => onlyKeys(h, ['Hospital Name', 'Hospital Display Name', 'coordinates']))
+
+  return db.doc('aggregates/receiving-hospitals').set({
+    hospitals: receiving
+  }, { merge: true })
+}
+
+customAggregateDispatch['orders'] = (docs) => {
+  const endOfYesterday = moment().subtract(1, 'day').endOf('day')
+  const hospitals = new Set()
+  const providers = new Set()
+  const cities = new Set()
+  let meals = 0
+  let orders = 0
+
+  Object.values(docs).forEach((o: any) => {
+    const date = moment(o['Delivery Date'], 'D MMMM YYYY')
+    if (o['Order Status'] === 'Confirmed' && date < endOfYesterday) {
+      hospitals.add(o.Hospital)
+      providers.add(o['Food Supplier'])
+      if (o.City) {
+        cities.add(o.City)
+      }
+      meals += parseInt(o['Number of Meals']) || 0
+      orders += 1
+    }
+  })
+
+  return db.doc('aggregates/summary').set({
+    num_hospitals_received: hospitals.size,
+    num_providers_used: providers.size,
+    cities_covered: Array.from(cities),
+    num_meals_delivered: meals,
+    num_orders_completed: orders
+  }, { merge: true })
+}
+
+const masterFields : { [c: string]: string[] } = {
+  'orders': ['City', 'Delivery Date', 'Food Supplier', 'Hospital', 'Number of Meals', 'Order Status']
+}
+
 export async function createMaster(collection: string) {
   const snapshot = await db.collection(collection).get()
   const docs: { [key:string]: any } = {}
   snapshot.forEach((doc) => {
-    docs[doc.id] = doc.data()
+    const data = doc.data()
+    if (collection in masterFields) {
+      docs[doc.id] = onlyKeys(data, masterFields[collection])
+    } else {
+      docs[doc.id] = data
+    }
   })
   console.log(`creating master for ${collection}`)
   await db.collection('aggregates').doc(collection).set(docs)
+  if (collection in customAggregateDispatch) {
+    await customAggregateDispatch[collection](docs)
+  }
 }
 
 export async function updateModifiedTimestamps(collection: string, record: AirtableRecord) {
@@ -161,6 +219,12 @@ export async function hospitalSponsors() {
   const sponsors = await airtable.sponsors()
   return db.doc('aggregates/donations').set({
     sponsors
+  }, { merge: true })
+}
+
+export function addDonationsToSummary(data: DonationsTotal) {
+  return db.doc('aggregates/summary').set({
+    donations: data
   }, { merge: true })
 }
 
