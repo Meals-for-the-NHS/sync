@@ -47,6 +47,14 @@ export type AirtableRecord = {
   modified_timestamp: Date
 }
 
-export type Cases = { [la:string]: number }
+export type CasePoint = {
+  name: string,
+  pop: number,
+  cases: number
+}
+
+export type Cases = {
+  [laID:string]: CasePoint
+}
 
 export type TableUpdateData = { [k: string] : any }

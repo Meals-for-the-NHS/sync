@@ -3,7 +3,7 @@ import 'firebase-functions'
 import * as moment from 'moment'
 import * as donorbox from './donorbox'
 import * as airtable from './airtable'
-import * as guardian from './guardian'
+import { casesByLocalAuthority } from './cases'
 import { geocode } from './maps'
 import { onlyKeys } from './util'
 import {
@@ -228,19 +228,20 @@ export function addDonationsToSummary(data: DonationsTotal) {
   }, { merge: true })
 }
 
-export async function cases() {
-  const casesByLA = await guardian.casesByLocalAuthority()
+export async function updateCasesAirtable() {
+  const casesByLA = await casesByLocalAuthority()
   const newData: TableUpdateData = {}
-  Object.entries(casesByLA).forEach(([la, _cases]) => {
-    newData[la] = {
-      'Cumulative Cases': _cases
+  Object.values(casesByLA).forEach(({ name, pop, cases }) => {
+    newData[name] = {
+      'Cumulative Cases': cases,
+      'Population': pop
     }
   })
 
   return airtable.updateTable({
     tableName: 'Cases (All hospitals)',
     lookupField: 'Local Authority',
-    updateFields: ['Cumulative Cases'],
+    updateFields: ['Cumulative Cases', 'Population'],
     newData
   })
 }

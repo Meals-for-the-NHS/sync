@@ -114,7 +114,7 @@ addAirtableExports({ name: 'team',  schedule: 'every 8 hours' })
 /// cases
 
 exports.updateCases = europeFunctions.https.onRequest(async (_, res) => {
-  await sync.cases()
+  await sync.updateCasesAirtable()
   res.send('ok')
 })
 
@@ -123,7 +123,7 @@ exports.scheduledCases = europeFunctions.pubsub
   .schedule('0 4,10,16,22 * * *')
   .timeZone('Europe/London')
   .onRun(() => {
-    return sync.cases()
+    return sync.updateCasesAirtable()
   })
 
 
