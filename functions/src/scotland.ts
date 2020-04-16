@@ -5,7 +5,7 @@ import { Cases } from './types'
 
 export async function casesScotland(): Promise<Cases> {
     const output : Cases = {}
-    await axios.get('https://www.gov.scot/publications/coronavirus-covid-19-tests-and-cases-in-scotland/').then((response) => {
+    await axios.get('https://www.gov.scot/publications/coronavirus-covid-19-tests-and-cases-in-scotland/').then((response: { data: any }) => {
       // Load the web page source code into a cheerio instance
       const $ = cheerio.load(response.data)
       const rows = $('table:first-of-type tr')
