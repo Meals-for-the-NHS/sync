@@ -52,7 +52,7 @@ export async function hospitals() {
     view: 'sync',
     fields: [
       'Hospital Display Name',
-      'Status', 'Hospital Name', 'Orders', 'Departments fed',
+      'Status Master', 'Hospital Name', 'Orders', 'Departments fed',
       'Area', 'NHS Trust', 'Number of orders', 'Hospital ID',
       'Region', 'Local Authority', 'City', 'Postcode', 'Priority Target',
       'modified_timestamp'

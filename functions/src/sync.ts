@@ -95,9 +95,11 @@ export async function syncAirTable(name: string, force = false) {
 
 const customAggregateDispatch: { [collection: string]: (docs: any) => Promise<unknown> } = {}
 
-customAggregateDispatch['hospitals'] = (docs) => {
+customAggregateDispatch['hospitals'] = async (docs) => {
+  const summary = await db.doc('aggregates/summary').get()
+  const receivingHospitals = summary.data()!.hospitals
   const receiving = Object.values(docs)
-    .filter((h: any) => h.Status && h.Status.match(/receiving/i))
+    .filter((h: any) => receivingHospitals.includes(h['Hospital Display Name']))
     .map((h: any) => onlyKeys(h, ['Hospital Name', 'Hospital Display Name', 'coordinates']))
 
   return db.doc('aggregates/receiving-hospitals').set({
@@ -115,7 +117,7 @@ customAggregateDispatch['orders'] = (docs) => {
 
   Object.values(docs).forEach((o: any) => {
     const date = moment(o['Delivery Date'], 'D MMMM YYYY')
-    if (o['Order Status'] === 'Confirmed' && date < endOfYesterday) {
+    if (o['Order Status'] === 'Confirmed' && date < endOfYesterday && o.Hospital) {
       hospitals.add(o.Hospital)
       providers.add(o['Food Supplier'])
       if (o.City) {
@@ -127,6 +129,7 @@ customAggregateDispatch['orders'] = (docs) => {
   })
 
   return db.doc('aggregates/summary').set({
+    hospitals: Array.from(hospitals),
     num_hospitals_received: hospitals.size,
     num_providers_used: providers.size,
     cities_covered: Array.from(cities),
@@ -321,7 +324,10 @@ export async function updateHospitalsWithCloseProviders() {
 
   for (const hospital of hospitals) {
     if (hospital.close_providers) {
-      const providers = hospital.close_providers.map((p:any) => p.record_id)
+      const providers = hospital.close_providers
+        .filter((p: any) => p.Status && p.Status.match(/deliver/i))
+        .map((p:any) => p.record_id)
+      console.log(providers)
       try {
         await airtable.updateField({
           tableName: 'Hospitals',
