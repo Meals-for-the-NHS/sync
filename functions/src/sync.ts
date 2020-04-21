@@ -179,7 +179,7 @@ customAggregateDispatch['photoOrders'] = async (docs) => {
 
     for (const photo of <AirtablePhoto[]> order['PR Photos']) {
       const { filename, id, thumbnails } = photo
-      if (!(id in photosCache) && thumbnails) {
+      if (!(id in photosCache) && thumbnails && fullOrder) {
         const photoDoc = onlyKeys(fullOrder, photoDocKeys)
         photoDoc.order_id = order.record_id
         photoDoc.date = moment(fullOrder['Delivery Date'], 'D MMMM YYYY')
