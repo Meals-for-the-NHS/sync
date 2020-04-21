@@ -18,21 +18,21 @@ export const db = admin.firestore()
 import * as storage from './storage'
 
 export async function donorboxDonations() {
-  const donations = await donorbox.donations()
+  const newDonations = await donorbox.donations()
   const collectionRef = db.collection('donations')
-  let count = 0
-  for (; count < donations.length; count++) {
-    const donation = donations[count]
+  const addedDonations = []
+
+  for (const newDonation of newDonations) {
     const {
       id, amount, currency, donation_date, donor,
       comment, processing_fee, join_mailing_list
-    } = donation
+    } = newDonation
     const docRef = collectionRef.doc(id.toString())
     const doc = await docRef.get()
     if (doc.exists) {
       break
     } else {
-      await docRef.set({
+      const donation = {
         source: 'donorbox',
         donor: {
           first_name: donor.first_name,
@@ -45,11 +45,32 @@ export async function donorboxDonations() {
         comment,
         commented: !!comment,
         donor_box_fee: processing_fee || 0
-      })
+      }
+      await docRef.set(donation)
+      addedDonations.push(donation)
     }
   }
-  console.log(`updated ${count}`)
-  return count
+
+  // add each donation summary to the day aggregates
+  const days: { [day:string]: { amount: number, timestamp: Date }[] } = {}
+  addedDonations.forEach(({ amount, timestamp }) => {
+    const day = moment(timestamp).format('YYYYMMDD')
+    const summary = { amount, timestamp }
+    if (days[day]) {
+      days[day].push(summary)
+    } else {
+      days[day] = [summary]
+    }
+  })
+
+  for (const [day, donations] of Object.entries(days)) {
+    await db.doc(`aggregates/donations/days/${day}`).set({
+      donations: admin.firestore.FieldValue.arrayUnion(...donations)
+    }, { merge: true })
+    console.log(`updated ${donations.length} on ${day}`)
+  }
+
+  return addedDonations.length
 }
 
 export async function syncAirTable(name: string, force = false) {
