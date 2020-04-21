@@ -59,7 +59,6 @@ export async function photoOrders() {
   })
 }
 
-
 export async function hospitals() {
   return fetchTable('Hospitals', {
     view: 'sync',
@@ -73,6 +72,15 @@ export async function hospitals() {
     cellFormat: 'string',
     userLocale: 'en-gb',
     timeZone: 'Europe/London'
+  })
+}
+
+export async function websiteHospitals() {
+  return fetchTable('Hospitals', {
+    view: 'Website data',
+    fields: [
+      'Hospital Display Name'
+    ]
   })
 }
 

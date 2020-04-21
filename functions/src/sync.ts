@@ -53,7 +53,7 @@ export async function donorboxDonations() {
 }
 
 export async function syncAirTable(name: string, force = false) {
-  const airtableData: Table  = await (<any>airtable)[name]()
+  const airtableData: Table = await (<any>airtable)[name]()
   const dataList = Object.entries(airtableData)
   const collectionName = toSnakeCase(name)
   let updated = 0
@@ -100,14 +100,18 @@ export async function syncAirTable(name: string, force = false) {
 const customAggregateDispatch: { [collection: string]: (docs: any) => Promise<unknown> } = {}
 
 customAggregateDispatch['hospitals'] = async (docs) => {
-  const summary = await db.doc('aggregates/summary').get()
-  const receivingHospitals = summary.data()!.hospitals
+  const websiteHospitals: Table = await airtable.websiteHospitals()
+  const receivingHospitals = Object.keys(websiteHospitals)
   const receiving = Object.values(docs)
-    .filter((h: any) => receivingHospitals.includes(h['Hospital Display Name']))
+    .filter((h: any) => receivingHospitals.includes(h.record_id))
     .map((h: any) => onlyKeys(h, ['Hospital Name', 'Hospital Display Name', 'coordinates']))
 
-  return db.doc('aggregates/receiving-hospitals').set({
+  await db.doc('aggregates/receiving-hospitals').set({
     hospitals: receiving
+  })
+
+  await db.doc('aggregates/summary').set({
+    num_hospitals_received: receiving.length,
   }, { merge: true })
 }
 
@@ -133,8 +137,6 @@ customAggregateDispatch['orders'] = (docs) => {
   })
 
   return db.doc('aggregates/summary').set({
-    hospitals: Array.from(hospitals),
-    num_hospitals_received: hospitals.size,
     num_providers_used: providers.size,
     cities_covered: Array.from(cities),
     num_meals_delivered: meals,
