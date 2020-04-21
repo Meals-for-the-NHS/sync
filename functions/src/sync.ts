@@ -5,10 +5,13 @@ import * as donorbox from './donorbox'
 import * as airtable from './airtable'
 import { casesByLocalAuthority } from './cases'
 import { geocode } from './maps'
-import { onlyKeys, toSnakeCase, getExtension } from './util'
 import {
-  Table, Donation, DonationSummary, DonationsTotal,
-  AirtableRecord, TableUpdateData, AirtablePhoto
+  onlyKeys, toSnakeCase, getExtension,
+  summariseDonationDay
+} from './util'
+import {
+  Table, DonationsTotal, AirtableRecord, TableUpdateData,
+  AirtablePhoto, DonationDay
 } from './types'
 
 admin.initializeApp()
@@ -54,7 +57,7 @@ export async function donorboxDonations() {
   // add each donation summary to the day aggregates
   const days: { [day:string]: { amount: number, timestamp: Date }[] } = {}
   addedDonations.forEach(({ amount, timestamp }) => {
-    const day = moment(timestamp).format('YYYYMMDD')
+    const day = moment(timestamp).format('YYYY-MM-DD')
     const summary = { amount, timestamp }
     if (days[day]) {
       days[day].push(summary)
@@ -242,31 +245,12 @@ export async function getAirtable(name: string) {
   return Object.values(doc.data()!)
 }
 
-export async function updateDonationDay(donation: Donation) {
-  const { amount, timestamp } = donation
-  const day = moment(timestamp).format('YYYYMMDD')
-  const docRef = db.doc(`aggregates/donations/days/${day}`)
-  const doc = await docRef.get()
-  if (doc.exists) {
-    const existing = doc.data()!
-    return docRef.update({
-      amount: existing.amount + amount,
-      donors: existing.donors + 1
-    })
-  } else {
-    return docRef.set({
-      amount,
-      donors: 1
-    })
-  }
-}
-
-export async function updateDonationsTotal(before: DonationSummary, after: DonationSummary) {
-  let amount = after.amount
-  let donors = after.donors
+export async function updateDonationsTotal(before: DonationDay, after: DonationDay) {
+  let { amount, donors } = summariseDonationDay(after)
   if (before) {
-    amount -= before.amount
-    donors -= before.donors
+    const beforeData = summariseDonationDay(before)
+    amount -= beforeData.amount
+    donors -= beforeData.donors
   }
 
   const docRef = db.doc('aggregates/donations')
@@ -333,14 +317,11 @@ export async function donationsAirtable() {
   let cumulativeAmount = 0, cumulativeDonors = 0
   docsList.forEach((doc) => {
     const { id, data } = doc
-    const { amount, donors } = data
+    const { amount, donors } = summariseDonationDay(data)
     cumulativeAmount += amount
     cumulativeDonors += donors
-    const year = id.substr(0, 4)
-    const month = id.substr(4, 2)
-    const day = id.substr(6, 2)
 
-    newData[`${year}-${month}-${day}`] = {
+    newData[id] = {
       'Amount': amount,
       'Donors': donors,
       'Cumulative Amount': cumulativeAmount,

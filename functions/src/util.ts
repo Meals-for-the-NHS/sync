@@ -1,3 +1,5 @@
+import { DonationDay } from './types'
+
 export const thousands = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 
 export const toSnakeCase = (s: string) => s.replace(/([a-z]|(?=[A-Z]))([A-Z])/g, '$1_$2').toLowerCase()
@@ -15,4 +17,10 @@ export const onlyKeys = (o: any, keys: string[]) => {
       output[k] = v
     })
   return output
+}
+
+export function summariseDonationDay(data: DonationDay) {
+  const amount = data.donations.reduce((a: number, b: { amount: number }) => a + b.amount, 0)
+  const donors = data.donations.length
+  return { amount, donors }
 }

@@ -141,7 +141,7 @@ export async function updateTable({ tableName, lookupField, updateFields, newDat
 
   for (const [key, data] of Object.entries(newData)) {
     const recordId = lookupMap[key]
-    let fields: any = {
+    const fields: any = {
       'Updated': new Date(),
     }
 

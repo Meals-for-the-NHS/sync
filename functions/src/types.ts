@@ -32,6 +32,13 @@ export type Hospital = {
   modified_timestamp: string,
 }
 
+export type DonationDay = {
+  donations: {
+    amount: number,
+    timestamp: Date
+  }[]
+}
+
 export type DonationSummary = {
   amount: number,
   donors: number

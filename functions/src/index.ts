@@ -1,7 +1,7 @@
 import * as functions from 'firebase-functions'
 import * as sync from './sync'
 import { api } from './api'
-import { Donation, DonationSummary, DonationsTotal, AirtableRecord } from './types'
+import { DonationDay, DonationsTotal, AirtableRecord } from './types'
 
 const europeFunctions = functions.region('europe-west2') // London
 
@@ -19,17 +19,11 @@ exports.scheduledDonations = europeFunctions.pubsub
   return sync.donorboxDonations()
 })
 
-exports.onNewDonation = europeFunctions.firestore
-  .document('donations/{id}')
-  .onCreate((snapshot) => {
-    return sync.updateDonationDay(<Donation> snapshot.data())
-  })
-
 exports.onDonationDayWrite = europeFunctions.firestore
   .document('aggregates/donations/days/{id}')
   .onWrite((change) => {
-    return sync.updateDonationsTotal(<DonationSummary> change.before.data(),
-                                     <DonationSummary> change.after.data())
+    return sync.updateDonationsTotal(<DonationDay> change.before.data(),
+                                     <DonationDay> change.after.data())
   })
 
 exports.onDonationTotalWrite = europeFunctions.firestore
