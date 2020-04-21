@@ -91,7 +91,9 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
       return sync.updateModifiedTimestamps(name, record)
     })
 
-  exports[`update${titledName}`] = europeFunctions.https.onRequest(async (req, res) => {
+  exports[`update${titledName}`] = europeFunctions.runWith({
+    timeoutSeconds: 300
+  }).https.onRequest(async (req, res) => {
     const { force } = req.query
     const count = await sync.syncAirTable(name, !!force)
     await new Promise((resolve) => { setTimeout(resolve, 5000) })
@@ -109,6 +111,7 @@ addAirtableExports({ name: 'hospitals', schedule: 'every 15 minutes' })
 addAirtableExports({ name: 'orders', schedule: 'every 15 minutes' })
 addAirtableExports({ name: 'providers',  schedule: 'every 15 minutes' })
 addAirtableExports({ name: 'team',  schedule: 'every 8 hours' })
+addAirtableExports({ name: 'photoOrders',  schedule: 'every 8 hours' })
 
 ////////////////////////////////////
 /// cases

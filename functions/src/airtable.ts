@@ -47,6 +47,19 @@ export async function orders() {
   })
 }
 
+export async function photoOrders() {
+  return fetchTable('Order Tracker', {
+    view: 'With photos',
+    fields: [
+      'Hospital', 'Food Supplier', 'Postcode', 'City',
+      'Delivery Date', 'Number of Meals',
+      'PR Photos', 'PR Quotes',
+      'modified_timestamp',
+    ]
+  })
+}
+
+
 export async function hospitals() {
   return fetchTable('Hospitals', {
     view: 'sync',

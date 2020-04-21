@@ -47,6 +47,19 @@ export type AirtableRecord = {
   modified_timestamp: Date
 }
 
+export type AirtablePhoto = {
+  filename: string,
+  id: string,
+  type: string,
+  thumbnails: {
+    [size: string]: {
+      width: number,
+      height: number,
+      url: string
+    }
+  }
+}
+
 export type CasePoint = {
   name: string,
   pop: number,

@@ -5,14 +5,17 @@ import * as donorbox from './donorbox'
 import * as airtable from './airtable'
 import { casesByLocalAuthority } from './cases'
 import { geocode } from './maps'
-import { onlyKeys } from './util'
+import { onlyKeys, toSnakeCase, getExtension } from './util'
 import {
   Table, Donation, DonationSummary, DonationsTotal,
-  AirtableRecord, TableUpdateData
+  AirtableRecord, TableUpdateData, AirtablePhoto
 } from './types'
 
 admin.initializeApp()
 export const db = admin.firestore()
+
+// need to initialize before importing
+import * as storage from './storage'
 
 export async function donorboxDonations() {
   const donations = await donorbox.donations()
@@ -52,9 +55,10 @@ export async function donorboxDonations() {
 export async function syncAirTable(name: string, force = false) {
   const airtableData: Table  = await (<any>airtable)[name]()
   const dataList = Object.entries(airtableData)
+  const collectionName = toSnakeCase(name)
   let updated = 0
   try {
-    const modifiedDoc = await db.collection('airtable_util').doc(`${name}_modified`).get()
+    const modifiedDoc = await db.collection('airtable_util').doc(`${collectionName}_modified`).get()
     const modified = modifiedDoc.data()
     let batch = db.batch()
     for (const record of dataList) {
@@ -73,7 +77,7 @@ export async function syncAirTable(name: string, force = false) {
         })
 
         if (timestamp.isValid()) {
-          const doc = db.collection(name).doc(rec_id)
+          const doc = db.collection(collectionName).doc(rec_id)
           batch.set(doc, newData, { merge: true })
           updated++
         }
@@ -138,12 +142,52 @@ customAggregateDispatch['orders'] = (docs) => {
   }, { merge: true })
 }
 
+customAggregateDispatch['photoOrders'] = async (docs) => {
+  const photosDocRef = db.doc('photos/orders')
+  const photos = await photosDocRef.get()
+  const photosCache = photos.data() || {}
+  const orders: any = Object.values(docs)
+  const updated: { [k: string]: any } = {}
+  const photoDocKeys = ['City', 'Food Supplier', 'Number of Meals']
+
+  for (const order of orders) {
+    const fullOrderDoc = await db.collection('orders').doc(order.record_id).get()
+    const fullOrder = fullOrderDoc.data()!
+
+    for (const photo of <AirtablePhoto[]> order['PR Photos']) {
+      const { filename, id, thumbnails } = photo
+      if (!(id in photosCache) && thumbnails) {
+        const photoDoc = onlyKeys(fullOrder, photoDocKeys)
+        photoDoc.order_id = order.record_id
+        photoDoc.date = moment(fullOrder['Delivery Date'], 'D MMMM YYYY')
+        photoDoc.filename = `${id}${getExtension(filename)}`
+        photoDoc.sizes = []
+
+        for (let size of Object.keys(thumbnails)) {
+          const destination = `photo-orders/${size}/${photoDoc.filename}`
+          await storage.store({
+            url: thumbnails[size].url,
+            destination
+          })
+
+          photoDoc.sizes.push(size)
+        }
+        updated[id] = photoDoc
+        console.log('added', id)
+        // update as we go so if the function times out we don't lose anything
+       await photosDocRef.set(updated, { merge: true })
+      }
+    }
+  }
+}
+
 const masterFields : { [c: string]: string[] } = {
   'orders': ['City', 'Delivery Date', 'Food Supplier', 'Hospital', 'Number of Meals', 'Order Status']
 }
 
 export async function createMaster(collection: string) {
-  const snapshot = await db.collection(collection).get()
+  const collectionName = toSnakeCase(collection)
+  const snapshot = await db.collection(collectionName).get()
   const docs: { [key:string]: any } = {}
   snapshot.forEach((doc) => {
     const data = doc.data()
@@ -153,8 +197,8 @@ export async function createMaster(collection: string) {
       docs[doc.id] = data
     }
   })
-  console.log(`creating master for ${collection}`)
-  await db.collection('aggregates').doc(collection).set(docs)
+  console.log(`creating master for ${collectionName}`)
+  await db.collection('aggregates').doc(collectionName).set(docs)
   if (collection in customAggregateDispatch) {
     await customAggregateDispatch[collection](docs)
   }
@@ -163,7 +207,7 @@ export async function createMaster(collection: string) {
 export async function updateModifiedTimestamps(collection: string, record: AirtableRecord) {
   const { record_id, modified_timestamp } = record
   if (modified_timestamp) {
-    return db.collection('airtable_util').doc(`${collection}_modified`).set({
+    return db.collection('airtable_util').doc(`${toSnakeCase(collection)}_modified`).set({
       [record_id]: modified_timestamp
     }, { merge: true })
   }
