@@ -22,7 +22,7 @@ api.get('/commented-donations', async (req, res) => {
 
   let queryRef = sync.db.collection('donations')
     .where('commented', '==', true)
-    .orderBy('timestamp')
+    .orderBy('timestamp', 'desc')
 
   const { start } = req.query
   if (start) {
