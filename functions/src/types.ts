@@ -69,7 +69,7 @@ export type AirtablePhoto = {
 
 export type CasePoint = {
   name: string,
-  pop: number,
+  pop?: number,
   cases: number
 }
 
