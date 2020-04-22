@@ -22,7 +22,7 @@ api.get('/commented-donations', async (req, res) => {
 
   let queryRef = sync.db.collection('donations')
     .where('commented', '==', true)
-    .orderBy('timestamp')
+    .orderBy('timestamp', 'desc')
 
   const { start } = req.query
   if (start) {
@@ -38,7 +38,7 @@ api.get('/commented-donations', async (req, res) => {
   }
 
   query.forEach((doc) => {
-    const { comment, donor, timestamp, amount } = doc.data()!
+    const { comment, donor, timestamp, amount } = doc.data()
     output.donations.push({
       first_name: donor.first_name,
       comment,
@@ -50,3 +50,13 @@ api.get('/commented-donations', async (req, res) => {
 
   res.send(output)
 })
+
+function exposeAggregate(name: string) {
+  api.get(`/${name}`, async (_, res) => {
+    const data = await sync.db.collection('aggregates').doc(name).get()
+    res.send(data.data())
+  })
+}
+
+exposeAggregate('summary')
+exposeAggregate('receiving-hospitals')

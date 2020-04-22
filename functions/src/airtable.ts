@@ -47,19 +47,40 @@ export async function orders() {
   })
 }
 
+export async function photoOrders() {
+  return fetchTable('Order Tracker', {
+    view: 'With photos',
+    fields: [
+      'Hospital', 'Food Supplier', 'Postcode', 'City',
+      'Delivery Date', 'Number of Meals',
+      'PR Photos', 'PR Quotes',
+      'modified_timestamp',
+    ]
+  })
+}
+
 export async function hospitals() {
   return fetchTable('Hospitals', {
     view: 'sync',
     fields: [
       'Hospital Display Name',
-      'Status', 'Hospital Name', 'Orders', 'Departments fed',
+      'Status Master', 'Hospital Name', 'Orders', 'Departments fed',
       'Area', 'NHS Trust', 'Number of orders', 'Hospital ID',
       'Region', 'Local Authority', 'City', 'Postcode', 'Priority Target',
-      'Meal number', 'modified_timestamp'
+      'modified_timestamp'
     ],
     cellFormat: 'string',
     userLocale: 'en-gb',
     timeZone: 'Europe/London'
+  })
+}
+
+export async function websiteHospitals() {
+  return fetchTable('Hospitals', {
+    view: 'Website data',
+    fields: [
+      'Hospital Display Name'
+    ]
   })
 }
 
@@ -120,7 +141,7 @@ export async function updateTable({ tableName, lookupField, updateFields, newDat
 
   for (const [key, data] of Object.entries(newData)) {
     const recordId = lookupMap[key]
-    let fields: any = {
+    const fields: any = {
       'Updated': new Date(),
     }
 

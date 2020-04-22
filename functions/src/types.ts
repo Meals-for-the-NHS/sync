@@ -12,6 +12,33 @@ export type Donation = {
   donor_box_fee: number
 }
 
+// we ask Airtable for hospitals fields as strings
+export type Hospital = {
+  'Hospital Display Name': string,
+  Status: string,
+  'Hospital Name': string,
+  Orders: string,
+  'Departments fed': string,
+  Area: string,
+  'NHS Trust': string,
+  'Number of orders': string,
+  'Hospital ID': string,
+  Region: string,
+  'Local Authority': string,
+  City: string,
+  Postcode: string,
+  'Priority Target': string,
+  'Meal number': string,
+  modified_timestamp: string,
+}
+
+export type DonationDay = {
+  donations: {
+    amount: number,
+    timestamp: Date
+  }[]
+}
+
 export type DonationSummary = {
   amount: number,
   donors: number
@@ -27,6 +54,27 @@ export type AirtableRecord = {
   modified_timestamp: Date
 }
 
-export type Cases = { [la:string]: number }
+export type AirtablePhoto = {
+  filename: string,
+  id: string,
+  type: string,
+  thumbnails: {
+    [size: string]: {
+      width: number,
+      height: number,
+      url: string
+    }
+  }
+}
+
+export type CasePoint = {
+  name: string,
+  pop: number,
+  cases: number
+}
+
+export type Cases = {
+  [laID:string]: CasePoint
+}
 
 export type TableUpdateData = { [k: string] : any }

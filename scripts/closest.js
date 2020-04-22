@@ -19,7 +19,7 @@ async function main() {
   const keys = JSON.parse(fs.readFileSync('./keys.json', 'utf8'))
 
   const hospitalsQuery = await db.collection('hospitals')
-//        .limit(2)
+//        .limit(3)
         .get()
 
   const hospitals = []
@@ -28,7 +28,7 @@ async function main() {
   })
 
   const providersDoc = await db.collection('aggregates').doc('providers').get()
-  const providers = Object.values(providersDoc.data()).filter(p => p.coordinates)
+  const allProviders = providersDoc.data()
 
   const providerDistances = {}
   let totalFound = 0
@@ -37,17 +37,20 @@ async function main() {
     if (!hospital.coordinates) {
       continue
     }
+
     const cacheDoc = `hospital_provider_distances/${hospital.record_id}`
 
     const distances = []
 
-    for (const provider of providers) {
-      const distance = Distance.between(coords(hospital), coords(provider))
-      if (distance < Distance('25 km')) {
+    for (const provider of Object.values(allProviders)) {
+      if (provider.coordinates) {
+        const distance = Distance.between(coords(hospital), coords(provider))
+        if (distance < Distance('25 km')) {
           distances.push({
             distance: distance.radians,
             provider
           })
+        }
       }
     }
 
@@ -62,6 +65,9 @@ async function main() {
     const distanceCacheDoc = await db.doc(cacheDoc).get()
     if (distanceCacheDoc.exists) {
       currentClosest = distanceCacheDoc.data().providers
+
+      // backwards compatibilty
+      currentClosest.forEach((p) => p.Status = allProviders[p.record_id].Status || null)
     }
 
     const alreadyCalced = new Set(currentClosest.map(p => p.record_id))
@@ -72,6 +78,7 @@ async function main() {
         // console.log('already calced', provider['Restaurant Name'])
         continue
       }
+
       const response = await mapsClient.directions({
         params: {
           origin: hospital.coordinates,
@@ -87,10 +94,12 @@ async function main() {
         newProviders.push({
           name: provider['Restaurant Name'],
           drive_time: minutes,
-          record_id: provider.record_id
+          record_id: provider.record_id,
+          status: provider.Status || null
         })
       } catch (e) {
-        console.log(e)
+        console.error(keys.maps)
+        console.error(response.data)
       }
     }
 
