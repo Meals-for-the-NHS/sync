@@ -6,6 +6,8 @@ import * as airtable from './airtable'
 import * as guardian from './guardian'
 import { geocode } from './maps'
 import { Table, Donation, DonationSummary, AirtableRecord, TableUpdateData } from './types'
+import * as wales from "./wales";
+import * as scotland from "./scotland";
 
 admin.initializeApp()
 export const db = admin.firestore()
@@ -165,9 +167,23 @@ export async function hospitalSponsors() {
 }
 
 export async function cases() {
-  const casesByLA = await guardian.casesByLocalAuthority()
   const newData: TableUpdateData = {}
+  const casesByLA = await guardian.casesByLocalAuthority()
   Object.entries(casesByLA).forEach(([la, _cases]) => {
+    newData[la] = {
+      'Cumulative Cases': _cases
+    }
+  })
+
+  const casesByLAWales = await wales.casesWales()
+  Object.entries(casesByLAWales).forEach(([la, _cases]) => {
+    newData[la] = {
+      'Cumulative Cases': _cases
+    }
+  })
+
+  const casesByLAScotland = await scotland.casesScotland()
+  Object.entries(casesByLAScotland).forEach(([la, _cases]) => {
     newData[la] = {
       'Cumulative Cases': _cases
     }
