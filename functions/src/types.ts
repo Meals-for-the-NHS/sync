@@ -73,8 +73,6 @@ export type CasePoint = {
   cases: number
 }
 
-export type Cases = {
-  [laID:string]: CasePoint
-}
+export type Cases = CasePoint[]
 
 export type TableUpdateData = { [k: string] : any }

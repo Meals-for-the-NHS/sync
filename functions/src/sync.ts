@@ -3,7 +3,7 @@ import 'firebase-functions'
 import * as moment from 'moment'
 import * as donorbox from './donorbox'
 import * as airtable from './airtable'
-import { casesByLocalAuthority, casesScotland, casesWales } from './cases'
+import { skyCases } from './cases'
 import {geocode} from './maps'
 import {
   onlyKeys, toSnakeCase, getExtension,
@@ -208,7 +208,14 @@ customAggregateDispatch['photoOrders'] = async (docs) => {
 }
 
 const masterFields: { [c: string]: string[] } = {
-  'orders': ['City', 'Delivery Date', 'Food Supplier', 'Hospital', 'Number of Meals', 'Order Status']
+  'orders': [
+    'City', 'Delivery Date', 'Food Supplier', 'Hospital',
+    'Number of Meals', 'Order Status'
+  ],
+  'hospitals': [
+    'Status Rollup', 'Hospital Name', 'Local Authority', 'City',
+    'Postcode', 'coordinates', 'record_id'
+  ]
 }
 
 export async function createMaster(collection: string) {
@@ -285,25 +292,10 @@ export function addDonationsToSummary(data: DonationsTotal) {
 export async function updateCasesAirtable() {
   const newData: TableUpdateData = {}
 
-  const casesByLA = await casesByLocalAuthority()
-  Object.values(casesByLA).forEach(({name, pop, cases}) => {
+  const allCases = await skyCases()
+  allCases.forEach(({ name, cases }) => {
     newData[name] = {
       'Cumulative Cases': cases,
-      'Population': pop
-    }
-  })
-
-  const casesByLAWales = await casesWales()
-  Object.values(casesByLAWales).forEach(({ name, cases }) => {
-    newData[name] = {
-      'Cumulative Cases': cases
-    }
-  })
-
-  const casesByLAScotland = await casesScotland()
-  Object.values(casesByLAScotland).forEach(({ name, cases }) => {
-    newData[name] = {
-      'Cumulative Cases': cases
     }
   })
 
