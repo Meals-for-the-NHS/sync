@@ -152,8 +152,8 @@ customAggregateDispatch['orders'] = (docs) => {
     if (o['Order Status'] === 'Confirmed' && date < endOfYesterday && o.Hospital) {
       hospitals.add(o.Hospital)
       providers.add(o['Food Supplier'])
-      if (o.City) {
-        cities.add(o.City)
+      if (o['Hospital City']) {
+        cities.add(o['Hospital City'])
       }
       meals += parseInt(o['Number of Meals']) || 0
       orders += 1
@@ -174,7 +174,7 @@ customAggregateDispatch['photoOrders'] = async (docs) => {
   const photosCache = photos.data() || {}
   const orders: any = Object.values(docs)
   const updated: { [k: string]: any } = {}
-  const photoDocKeys = ['City', 'Food Supplier', 'Number of Meals']
+  const photoDocKeys = ['Hospital City', 'Food Supplier', 'Number of Meals']
 
   for (const order of orders) {
     const fullOrderDoc = await db.collection('orders').doc(order.record_id).get()
@@ -209,7 +209,7 @@ customAggregateDispatch['photoOrders'] = async (docs) => {
 
 const masterFields: { [c: string]: string[] } = {
   'orders': [
-    'City', 'Delivery Date', 'Food Supplier', 'Hospital',
+    'Hospital City', 'Delivery Date', 'Food Supplier', 'Hospital',
     'Number of Meals', 'Order Status'
   ],
   'hospitals': [

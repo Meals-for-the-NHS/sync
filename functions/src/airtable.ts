@@ -23,7 +23,7 @@ async function fetchTable(tableName: string, options = {}): Promise<Table> {
 }
 
 export async function sponsors(): Promise<DonationSummary> {
-  const table = await fetchTable('Sponsor a Hospital', { view: 'Website data' })
+  const table = await fetchTable('Donor pipeline', { view: 'Website data' })
   const values = Object.values(table)
   const sum = values.reduce((prev, r) => r['Amount for Website'] + prev, 0)
   return {
@@ -38,8 +38,8 @@ export async function orders() {
     fields: [
       'Hospital', 'Food Supplier', 'Order Status', 'Delivery Date',
       'Delivery Time', 'Number of Meals', 'Postcode', 'Delivery steps',
-      'Manager User', 'Estimated food cost', 'Order #', 'City',
-      'modified_timestamp',
+      'Manager User', 'Estimated food cost', 'Order #', 'Hospital City',
+      'modified_timestamp'
     ],
     cellFormat: 'string',
     userLocale: 'en-gb',
@@ -51,10 +51,10 @@ export async function photoOrders() {
   return fetchTable('Order Tracker', {
     view: 'With photos',
     fields: [
-      'Hospital', 'Food Supplier', 'Postcode', 'City',
+      'Hospital', 'Food Supplier', 'Postcode', 'Hospital City',
       'Delivery Date', 'Number of Meals',
       'PR Photos', 'PR Quotes',
-      'modified_timestamp',
+      'modified_timestamp'
     ]
   })
 }
@@ -64,8 +64,8 @@ export async function hospitals() {
     view: 'sync',
     fields: [
       'Hospital Display Name',
-      'Status Master', 'Hospital Name', 'Orders', 'Departments fed',
-      'Area', 'NHS Trust', 'Number of orders', 'Hospital ID',
+      'Status Rollup', 'Hospital Name', 'Orders', 'Departments fed',
+      'Area', 'NHS Trust', 'Number of orders',
       'Region', 'Local Authority', 'City', 'Postcode', 'Priority Target',
       'modified_timestamp'
     ],
