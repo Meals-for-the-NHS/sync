@@ -101,9 +101,9 @@ function addAirtableExports({ name, schedule }: { name: string, schedule?: strin
   })
 }
 
-addAirtableExports({ name: 'hospitals', schedule: 'every 15 minutes' })
-addAirtableExports({ name: 'orders', schedule: 'every 15 minutes' })
-addAirtableExports({ name: 'providers',  schedule: 'every 15 minutes' })
+addAirtableExports({ name: 'hospitals', schedule: 'every 2 hours' })
+addAirtableExports({ name: 'orders', schedule: 'every 2 hours' })
+addAirtableExports({ name: 'providers',  schedule: 'every 2 hours' })
 addAirtableExports({ name: 'team',  schedule: 'every 8 hours' })
 addAirtableExports({ name: 'photoOrders',  schedule: 'every 8 hours' })
 
