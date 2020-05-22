@@ -2,6 +2,7 @@ import * as functions from 'firebase-functions'
 import * as sync from './sync'
 import { api } from './api'
 import { DonationDay, DonationsTotal, AirtableRecord } from './types'
+import * as kpis from './kpis'
 
 const europeFunctions = functions.region('europe-west2') // London
 
@@ -133,3 +134,9 @@ exports.updateHospitalsWithCloseProviders = europeFunctions
 })
 
 exports.api = europeFunctions.https.onRequest(api)
+
+
+exports.test1 = europeFunctions.https.onRequest(async (req, res) => {
+  const hospitalsSummary = await kpis.hospitalsSummary()
+  res.send(hospitalsSummary)
+})
