@@ -26,8 +26,13 @@ export async function sponsors(): Promise<DonationSummary> {
   const table = await fetchTable('Donor pipeline', { view: 'Website data' })
   const values = Object.values(table)
   const sum = values.reduce((prev, r) => r['Amount for Website'] + prev, 0)
+  const sumFromFundrasing = values
+    .filter(r => r['I want to...'].toUpperCase().trim() === 'FUNDRAISE')
+    .reduce((prev, r) => r['Amount for Website'] + prev, 0)
+
   return {
     amount: sum,
+    amountFromFundraising: sumFromFundrasing,
     donors: values.length
   }
 }

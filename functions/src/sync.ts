@@ -139,12 +139,17 @@ customAggregateDispatch['hospitals'] = async (docs) => {
   }, { merge: true })
 }
 
+const COMPLETED_ORDER_STATES = ['CONFIRMED', 'PLACED', 'ALLOCATION', 'READY TO BOOK', 'AMENDMENT']
+
 customAggregateDispatch['orders'] = (docs) => {
+  const startOfYesterday = moment().subtract(1, 'day').startOf('day')
   const endOfYesterday = moment().subtract(1, 'day').endOf('day')
   const hospitals = new Set()
   const providers = new Set()
   const cities = new Set()
   let meals = 0
+  let mealsYesterday = 0
+  let futureMeals = 0
   let orders = 0
 
   Object.values(docs).forEach((o: any) => {
@@ -158,12 +163,23 @@ customAggregateDispatch['orders'] = (docs) => {
       meals += parseInt(o['Number of Meals']) || 0
       orders += 1
     }
+
+    if (COMPLETED_ORDER_STATES.indexOf(o['Order Status'].toUpperCase().trim()) !== -1) {
+      if (date > startOfYesterday && date < endOfYesterday) {
+        mealsYesterday += parseInt(o['Number of Meals']) || 0
+      }
+      if (date > endOfYesterday) {
+          futureMeals += parseInt(o['Number of Meals']) || 0
+      }
+    }
   })
 
   return db.doc('aggregates/summary').set({
     num_providers_used: providers.size,
     cities_covered: Array.from(cities),
     num_meals_delivered: meals,
+    num_meals_delivered_yesterday: mealsYesterday,
+    num_meals_yet_to_deliver: futureMeals,
     num_orders_completed: orders
   }, { merge: true })
 }

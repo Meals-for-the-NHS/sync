@@ -41,6 +41,7 @@ export type DonationDay = {
 
 export type DonationSummary = {
   amount: number,
+  amountFromFundraising: number,
   donors: number
 }
 
