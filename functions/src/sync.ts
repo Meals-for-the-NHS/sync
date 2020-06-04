@@ -165,8 +165,9 @@ customAggregateDispatch['orders'] = (days) => {
         orders += 1
       }
 
-      if (COMPLETED_ORDER_STATES.indexOf(o['Order Status'].toUpperCase().trim()) !== -1) {
-        if (date > startOfYesterday && date < endOfYesterday) {
+      const status = o['Order Status']
+      if (status && COMPLETED_ORDER_STATES.includes(status.toUpperCase().trim())) {
+        if (date >= startOfYesterday && date < endOfYesterday) {
           mealsYesterday += parseInt(o['Number of Meals']) || 0
         }
         if (date > endOfYesterday) {
