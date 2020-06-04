@@ -141,7 +141,7 @@ customAggregateDispatch['hospitals'] = async (docs) => {
 
 const COMPLETED_ORDER_STATES = ['CONFIRMED', 'PLACED', 'ALLOCATION', 'READY TO BOOK', 'AMENDMENT']
 
-customAggregateDispatch['orders'] = (docs) => {
+customAggregateDispatch['orders'] = (days) => {
   const startOfYesterday = moment().subtract(1, 'day').startOf('day')
   const endOfYesterday = moment().subtract(1, 'day').endOf('day')
   const hospitals = new Set()
@@ -152,26 +152,28 @@ customAggregateDispatch['orders'] = (docs) => {
   let futureMeals = 0
   let orders = 0
 
-  Object.values(docs).forEach((o: any) => {
-    const date = moment(o['Delivery Date'], 'D MMMM YYYY')
-    if (o['Order Status'] === 'Confirmed' && date < endOfYesterday && o.Hospital) {
-      hospitals.add(o.Hospital)
-      providers.add(o['Food Supplier'])
-      if (o['Hospital City']) {
-        cities.add(o['Hospital City'])
+  Object.values(days).forEach((docs: any) => {
+    Object.values(docs).forEach((o: any) => {
+      const date = moment(o['Delivery Date'], 'D MMMM YYYY')
+      if (o['Order Status'] === 'Confirmed' && date < endOfYesterday && o.Hospital) {
+        hospitals.add(o.Hospital)
+        providers.add(o['Food Supplier'])
+        if (o['Hospital City']) {
+          cities.add(o['Hospital City'])
+        }
+        meals += parseInt(o['Number of Meals']) || 0
+        orders += 1
       }
-      meals += parseInt(o['Number of Meals']) || 0
-      orders += 1
-    }
 
-    if (COMPLETED_ORDER_STATES.indexOf(o['Order Status'].toUpperCase().trim()) !== -1) {
-      if (date > startOfYesterday && date < endOfYesterday) {
-        mealsYesterday += parseInt(o['Number of Meals']) || 0
-      }
-      if (date > endOfYesterday) {
+      if (COMPLETED_ORDER_STATES.indexOf(o['Order Status'].toUpperCase().trim()) !== -1) {
+        if (date > startOfYesterday && date < endOfYesterday) {
+          mealsYesterday += parseInt(o['Number of Meals']) || 0
+        }
+        if (date > endOfYesterday) {
           futureMeals += parseInt(o['Number of Meals']) || 0
+        }
       }
-    }
+    })
   })
 
   return db.doc('aggregates/summary').set({
@@ -237,19 +239,47 @@ const masterFields: { [c: string]: string[] } = {
 export async function createMaster(collection: string) {
   const collectionName = toSnakeCase(collection)
   const snapshot = await db.collection(collectionName).get()
-  const docs: { [key: string]: any } = {}
-  snapshot.forEach((doc) => {
-    const data = doc.data()
-    if (collection in masterFields) {
-      docs[doc.id] = onlyKeys(data, masterFields[collection])
-    } else {
-      docs[doc.id] = data
+
+  if (collectionName === 'orders') {
+    const days: { [day: string]: { [key: string]: any } } = {}
+    snapshot.forEach((doc) => {
+      const order = onlyKeys(doc.data(), masterFields['orders'])
+      const date = moment(order['Delivery Date'], 'D MMMM YYYY')
+      const dateKey = date.format('YYYY-MM-DD')
+      const day = days[dateKey]
+      if (day) {
+        day[doc.id] = order
+      } else {
+        days[dateKey] = {
+          [doc.id]: order
+        }
+      }
+    })
+    const batch = db.batch()
+    for (const [day, data] of Object.entries(days)) {
+      const doc = db.doc(`aggregates/orders/days/${day}`)
+      batch.set(doc, data)
     }
-  })
-  console.log(`creating master for ${collectionName}`)
-  await db.collection('aggregates').doc(collectionName).set(docs)
-  if (collection in customAggregateDispatch) {
-    await customAggregateDispatch[collection](docs)
+    await batch.commit()
+
+    await customAggregateDispatch['orders'](days)
+  }
+  else {
+    const docs: { [key: string]: any } = {}
+    snapshot.forEach((doc) => {
+      const data = doc.data()
+      if (collection in masterFields) {
+        docs[doc.id] = onlyKeys(data, masterFields[collection])
+      } else {
+        docs[doc.id] = data
+      }
+    })
+    console.log(`creating master for ${collectionName}`)
+    await db.collection('aggregates').doc(collectionName).set(docs)
+
+    if (collection in customAggregateDispatch) {
+      await customAggregateDispatch[collection](docs)
+    }
   }
 }
 

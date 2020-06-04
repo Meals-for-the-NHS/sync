@@ -3,9 +3,24 @@
     "predeploy": [
       "npm --prefix \"$RESOURCE_DIR\" run lint",
       "npm --prefix \"$RESOURCE_DIR\" run build"
-    ]
+    ],
+    "source": "functions"
   },
   "firestore": {
-	"rules": "firestore.rules"
+    "rules": "firestore.rules"
+  },
+  "emulators": {
+    "functions": {
+      "host": "localhost",
+      "port": "5555"
+    },
+    "firestore": {
+      "port": 8080
+    },
+	"ui": {
+      "enabled": true,
+      "host": "localhost",
+      "port": 4040
+    }
   }
 }
